@@ -1,0 +1,139 @@
+name: root-keygen (registry trust anchors)
+
+# Bootstrap ceremony Gate 2 (bootstrap-ceremony-runbook.md). Generates the
+# registry's root + freshness ed25519 signing keypairs ONCE, stores the two
+# PRIVATE keys as `registry-signing` Environment secrets, and emits ONLY the two
+# PUBLIC keys (SPKI PEM + their keyIds) as a build artifact + job summary for the
+# conduit anchor-embed PR (Gate 3).
+#
+# SECURITY MODEL:
+#   - `workflow_dispatch` ONLY, gated on the `registry-signing` Environment
+#     (required reviewer = the maintainer). Nothing runs without an approval.
+#   - Deployments to this Environment are branch-restricted to `main`, so this
+#     can never run from a fork or an unreviewed branch.
+#   - Private keys are generated in-runner, immediately `::add-mask::`ed, written
+#     to Environment secrets, and NEVER printed, logged, or uploaded as an
+#     artifact. Only the PUBLIC halves leave this job.
+#   - Idempotency guard: refuses to run if either signing secret already exists,
+#     so a re-dispatch can never silently clobber a live root/freshness key
+#     (rotation is a separate, deliberate runbook — not this workflow).
+#
+# ONE MANUAL PRECONDITION (runbook Gate 1 → Gate 2): the maintainer provisions a
+# fine-grained PAT as the Environment secret `KEYGEN_ADMIN_PAT`, scoped to
+# secrets:write on THIS repo only. It's the single piece not born inside the
+# ceremony — GitHub's own GITHUB_TOKEN cannot write secrets. Scope it narrowly
+# and revoke it after the bootstrap.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type GENERATE to confirm you intend to mint NEW production signing keys'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  keygen:
+    runs-on: ubuntu-latest
+    environment: registry-signing
+    steps:
+      - name: Guard — require explicit confirmation
+        if: ${{ inputs.confirm != 'GENERATE' }}
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          # CONFIRM is passed via env (never interpolated into the shell) so a
+          # crafted dispatch input cannot inject commands here.
+          echo "::error::confirm input was '${CONFIRM}', expected 'GENERATE' — aborting" >&2
+          exit 1
+
+      - name: Guard — refuse to clobber existing signing keys
+        env:
+          GH_TOKEN: ${{ secrets.KEYGEN_ADMIN_PAT }}
+        run: |
+          set -euo pipefail
+          existing="$(gh secret list --env registry-signing --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name' 2>/dev/null || true)"
+          for name in ROOT_SIGNING_KEY FRESHNESS_SIGNING_KEY; do
+            if grep -qx "$name" <<<"$existing"; then
+              echo "::error::$name already exists in the registry-signing Environment — refusing to overwrite a live key. Rotation is a separate runbook." >&2
+              exit 1
+            fi
+          done
+          echo "No existing signing secrets — safe to generate."
+
+      - name: Generate ed25519 keypairs (root + freshness)
+        id: gen
+        run: |
+          set -euo pipefail
+          umask 077
+          keydir="$RUNNER_TEMP/keys"          # private keys never leave this job
+          mkdir -p "$keydir" "$GITHUB_WORKSPACE/keygen-public"
+          : >"$GITHUB_WORKSPACE/keygen-public/keyids.txt"
+
+          for role in root freshness; do
+            # PKCS#8 private key (PEM) + SPKI public key (PEM + DER).
+            openssl genpkey -algorithm ed25519 -out "$keydir/${role}.key.pem"
+            openssl pkey -in "$keydir/${role}.key.pem" -pubout -out "$keydir/${role}.pub.pem"
+            openssl pkey -in "$keydir/${role}.key.pem" -pubout -outform DER -out "$keydir/${role}.pub.der"
+
+            # Defense in depth: mask the private key so it can never reach a log.
+            echo "::add-mask::$(cat "$keydir/${role}.key.pem")"
+
+            # keyId MUST match github.com/conduitio/conduit index.KeyID exactly:
+            # "sha256:" + lowercase-hex(SHA256(SPKI-DER)). openssl's -pubout DER
+            # IS the PKIX/SPKI encoding Go's x509.MarshalPKIXPublicKey produces.
+            keyid="sha256:$(openssl dgst -sha256 -r "$keydir/${role}.pub.der" | cut -d' ' -f1)"
+            echo "${role}_keyid=${keyid}" >>"$GITHUB_OUTPUT"
+
+            # Public material only → the workspace, for artifact upload.
+            cp "$keydir/${role}.pub.pem" "$GITHUB_WORKSPACE/keygen-public/"
+            echo "${role}: ${keyid}" >>"$GITHUB_WORKSPACE/keygen-public/keyids.txt"
+          done
+
+      - name: Store private keys as Environment secrets
+        env:
+          GH_TOKEN: ${{ secrets.KEYGEN_ADMIN_PAT }}
+        run: |
+          set -euo pipefail
+          keydir="$RUNNER_TEMP/keys"
+          gh secret set ROOT_SIGNING_KEY      --env registry-signing --repo "$GITHUB_REPOSITORY" <"$keydir/root.key.pem"
+          gh secret set FRESHNESS_SIGNING_KEY --env registry-signing --repo "$GITHUB_REPOSITORY" <"$keydir/freshness.key.pem"
+          echo "Stored ROOT_SIGNING_KEY and FRESHNESS_SIGNING_KEY."
+
+      - name: Upload PUBLIC keys + keyIds (for the conduit anchor-embed PR)
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-trust-anchors-public
+          path: keygen-public/
+          retention-days: 90
+
+      - name: Job summary
+        env:
+          ROOT_KEYID: ${{ steps.gen.outputs.root_keyid }}
+          FRESHNESS_KEYID: ${{ steps.gen.outputs.freshness_keyid }}
+        run: |
+          {
+            echo "## Registry trust anchors generated"
+            echo ""
+            echo "Private keys stored in the \`registry-signing\` Environment. Public keys + keyIds"
+            echo "are in the \`registry-trust-anchors-public\` artifact — feed them to the conduit"
+            echo "anchor-embed PR (Gate 3)."
+            echo ""
+            echo "| role | keyId |"
+            echo "| --- | --- |"
+            echo "| root | \`${ROOT_KEYID}\` |"
+            echo "| freshness | \`${FRESHNESS_KEYID}\` |"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Shred private key material from the runner
+        if: ${{ always() }}
+        run: |
+          keydir="$RUNNER_TEMP/keys"
+          if [ -d "$keydir" ]; then
+            find "$keydir" -type f -exec shred -u {} + 2>/dev/null || rm -rf "$keydir"
+            rm -rf "$keydir"
+          fi
+          echo "Private key material removed from the runner (the durable copy lives only in the Environment secrets)."
