@@ -1,0 +1,105 @@
+name: index-sign
+
+# Root-signs index/index.json with the ceremony root key and commits the signed
+# envelope back to main. This is what makes the index verifiable by the shipped
+# client (index.Verify) and the publish Action's register step.
+#
+# workflow_dispatch ONLY: every use of the root key is a deliberate, gated
+# action (environment: registry-signing, required reviewer = maintainer). Being
+# dispatch-only also means the signed-index commit this pushes can never
+# re-trigger the workflow — no loop.
+#
+# Role semantics: a first-time client can only verify a ROOT signature, so
+# content changes (the bootstrap empty seed, and every post-register re-sign)
+# use role=root. Freshness (liveness-only) is a fast-follow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      role:
+        description: 'signature role'
+        type: choice
+        options: [root, freshness]
+        default: root
+      reset-to-empty:
+        description: 'BOOTSTRAP: overwrite the payload with an empty connectors[] seed before signing (use once, to replace the placeholder index)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    environment: registry-signing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build the signer
+        run: go build -o /tmp/index-sign ./cmd/index-sign
+
+      - name: Bootstrap — reset payload to an empty seed
+        if: ${{ inputs.reset-to-empty }}
+        run: |
+          set -euo pipefail
+          # Fresh empty index: version 1 (no client has ever fetched a served
+          # index — registry.conduitdata.io only goes live with this run), current
+          # timestamp. connectors[] empty; seeds are added via the real register
+          # flow.
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          printf '{"schemaVersion":1,"index":{"version":1,"timestamp":"%s"},"connectors":[]}\n' "$TS" > index/index.json
+          echo "reset index/index.json to empty seed (timestamp $TS)"
+
+      - name: Root-sign the index
+        env:
+          ROOT_SIGNING_KEY: ${{ secrets.ROOT_SIGNING_KEY }}
+          FRESHNESS_SIGNING_KEY: ${{ secrets.FRESHNESS_SIGNING_KEY }}
+          ROLE: ${{ inputs.role }}
+        run: |
+          set -euo pipefail
+          if [ "$ROLE" = "freshness" ]; then
+            KEY="$FRESHNESS_SIGNING_KEY"; KEYENV=FRESHNESS_SIGNING_KEY
+          else
+            KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
+          fi
+          if [ -z "$KEY" ]; then
+            echo "::error::signing key for role=$ROLE is empty in the registry-signing Environment" >&2
+            exit 1
+          fi
+          # index-sign reads the key from the named env var (never an arg/log).
+          /tmp/index-sign -in index/index.json -out index/index.json -role "$ROLE" -key-env "$KEYENV"
+
+      - name: Commit + push the signed index (if changed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- index/index.json; then
+            echo "index/index.json unchanged after signing — nothing to commit (deterministic ed25519 over an unchanged payload)."
+            exit 0
+          fi
+          git config user.name "conduit-registry-signer[bot]"
+          git config user.email "registry-signer@conduitdata.io"
+          git add index/index.json
+          git commit -m "chore(index): root-sign index/index.json [skip ci]"
+          git push origin HEAD:main
+
+      - name: Job summary
+        env:
+          ROLE: ${{ inputs.role }}
+          RESET: ${{ inputs.reset-to-empty }}
+        run: |
+          {
+            echo "## index signed"
+            echo ""
+            echo "- role: \`${ROLE}\`"
+            echo "- reset-to-empty: \`${RESET}\`"
+            echo "- connectors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload']['connectors']))")\`"
+            echo ""
+            echo "Deploy (\`deploy.yml\`) serves it at https://registry.conduitdata.io/index.json."
+          } >> "$GITHUB_STEP_SUMMARY"
