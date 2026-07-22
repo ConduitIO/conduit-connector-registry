@@ -1,0 +1,117 @@
+name: Deploy
+
+# The actual deploy pipeline (step6-web-ui.md §3 steps 9-10). Runs the SAME
+# build (verify -> derive -> astro build -> byte-verify) as ci.yml, then adds:
+# GitHub Pages deploy, then a post-deploy smoke check that byte-compares the
+# LIVE /index.json against the one this run just verified — catches a broken
+# deploy or a stale CDN cache (step6-web-ui.md §9 edge case).
+#
+# Triggers: (a) push to main after an index-content merge, (b) daily cron
+# (refresh Scarf stats even when the index hasn't changed), (c) manual dispatch.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'index/**'
+  schedule:
+    - cron: '17 6 * * *' # daily — Scarf stats refresh even with no content change
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://registry.conduit.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + lint (fail closed before ever building)
+        run: |
+          npm run typecheck
+          npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      # Hard gate: a tampered/stale/schema-too-new index/index.json exits
+      # non-zero here, no dist/ is produced, and every step below is skipped —
+      # the previously-deployed site stays live and untouched.
+      - name: Build site
+        env:
+          SCARF_API_TOKEN: ${{ secrets.SCARF_API_TOKEN }}
+        run: npm run build
+
+      - name: Install Playwright's Chromium (for the a11y scan only)
+        run: npx playwright install --with-deps chromium
+
+      - name: Accessibility scan (gates the deploy — zero critical/serious violations)
+        run: npm run axe
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Re-run the build locally in this job too, so dist/index.json (the
+      # thing we byte-compare the live site against) is the exact bytes this
+      # workflow run verified — never re-fetched, never re-derived.
+      - name: Rebuild (to get a local dist/index.json to compare against)
+        env:
+          SCARF_API_TOKEN: ${{ secrets.SCARF_API_TOKEN }}
+        run: npm run build
+
+      - name: Post-deploy smoke check (byte-compare /index.json, list-page marker)
+        env:
+          SITE_URL: ${{ env.SITE_URL }}
+        run: npm run smoke:deployed

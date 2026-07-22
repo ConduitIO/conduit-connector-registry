@@ -1,0 +1,41 @@
+/* Follows StatusPill's pattern (conduit-ui/src/components/StatusPill.tsx): a
+   glyph + a visible text label + color via a CSS custom property, so color is
+   always reinforcement, never the sole signal. Not a copy of StatusPill itself —
+   connector-trust state is a different domain from pipeline run-state
+   (step6-web-ui.md §5/§6). */
+/*
+ * Contrast note (WCAG 2.1 AA, 4.5:1 for text — see test/contrastTokens.test.ts):
+ * the LABEL is always rendered in --conduit-color-text (the page's normal,
+ * high-contrast text color), never in the status tint — several of
+ * tokens.css's status colors (e.g. --conduit-color-status-running,
+ * -recovering) fall short of 4.5:1 as small bold TEXT against a light-mode
+ * background once composited with even a light tint, though they're fine as
+ * a decorative glyph (aria-hidden, no independent contrast requirement since
+ * a text label always accompanies it) or a background tint. This is a
+ * deliberate divergence from StatusPill's literal `color: var(--pill-color)`
+ * on the whole pill — StatusPill's own text has the same underlying
+ * contrast gap in light mode; this component fixes it rather than
+ * propagating it.
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--conduit-space-1);
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--conduit-color-text);
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+}
+
+.glyph {
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--badge-color);
+}
+
+.label {
+  white-space: nowrap;
+}

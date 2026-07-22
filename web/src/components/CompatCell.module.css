@@ -1,0 +1,28 @@
+.cell {
+  text-align: center;
+}
+
+/* Contrast note (WCAG 2.1 AA, 4.5:1 for text — verified for real in
+   scripts/axe-scan.ts's Playwright/Chromium run, which caught this as a
+   genuine violation in an earlier version of this file that colored the
+   whole label green): the LABEL stays in --conduit-color-text; only the
+   aria-hidden checkmark glyph carries --conduit-color-status-running,
+   matching the same fix applied to VerifiedBadge/EffectiveStatusTag. */
+.available {
+  color: var(--conduit-color-text);
+  font-weight: 600;
+}
+
+.availableGlyph {
+  color: var(--conduit-color-status-running);
+}
+
+.unavailable {
+  color: var(--conduit-color-text-muted);
+}
+
+.unavailable a {
+  color: inherit;
+  text-decoration: underline;
+  font-size: var(--conduit-font-size-sm);
+}

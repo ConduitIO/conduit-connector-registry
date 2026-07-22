@@ -1,0 +1,25 @@
+/* See VerifiedBadge.module.css's contrast note — same reasoning applies here:
+   label text stays in --conduit-color-text, the status tint colors only the
+   decorative (aria-hidden) glyph and the background tint. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--conduit-space-1);
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--conduit-color-text);
+  background: color-mix(in srgb, var(--tag-color) 12%, transparent);
+}
+
+.glyph {
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--tag-color);
+}
+
+.label {
+  white-space: nowrap;
+}

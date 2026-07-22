@@ -1,0 +1,144 @@
+/*
+ * Base site styles. Layout/typography only — status/trust color logic lives in
+ * each component's own .module.css, consuming tokens.css's --conduit-color-status-*
+ * variables directly (see components/*.module.css).
+ */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--conduit-font-sans);
+  font-size: var(--conduit-font-size-base);
+  color: var(--conduit-color-text);
+  background: var(--conduit-color-bg);
+  line-height: 1.5;
+}
+
+main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--conduit-space-6) var(--conduit-space-4);
+}
+
+a {
+  color: var(--conduit-color-accent);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--conduit-space-2) var(--conduit-space-4);
+  background: var(--conduit-color-surface);
+  color: var(--conduit-color-text);
+  border-radius: var(--conduit-radius-sm);
+}
+
+.skip-link:focus {
+  left: var(--conduit-space-4);
+  top: var(--conduit-space-4);
+}
+
+.site-header {
+  border-bottom: 1px solid var(--conduit-color-border);
+  padding: var(--conduit-space-4);
+}
+
+.site-header nav {
+  max-width: 72rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--conduit-space-4);
+}
+
+.site-header a {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--conduit-color-text);
+}
+
+.site-footer {
+  border-top: 1px solid var(--conduit-color-border);
+  padding: var(--conduit-space-6) var(--conduit-space-4);
+  color: var(--conduit-color-text-muted);
+  font-size: var(--conduit-font-size-sm);
+}
+
+.site-footer .footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+code,
+pre {
+  font-family: var(--conduit-font-mono);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: var(--conduit-space-2);
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--conduit-space-2) var(--conduit-space-3);
+  border-bottom: 1px solid var(--conduit-color-border);
+}
+
+th {
+  color: var(--conduit-color-text-muted);
+  font-size: var(--conduit-font-size-sm);
+  font-weight: 600;
+}
+
+.pagination {
+  display: flex;
+  gap: var(--conduit-space-2);
+  margin-top: var(--conduit-space-6);
+  list-style: none;
+  padding: 0;
+}
+
+.pagination a,
+.pagination span {
+  display: inline-flex;
+  min-width: 2rem;
+  justify-content: center;
+  padding: var(--conduit-space-1) var(--conduit-space-2);
+  border-radius: var(--conduit-radius-sm);
+  border: 1px solid var(--conduit-color-border);
+  text-decoration: none;
+}
+
+.pagination [aria-current='page'] {
+  background: var(--conduit-color-surface);
+  font-weight: 700;
+  border-color: var(--conduit-color-accent);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

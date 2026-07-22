@@ -1,0 +1,53 @@
+---
+import { EffectiveStatusTag } from './EffectiveStatusTag';
+import { VerifiedBadge } from './VerifiedBadge';
+import { SearchBox } from './SearchBox';
+import type { RenderedConnector } from '../lib/renderModel';
+
+export interface Props {
+  pageConnectors: RenderedConnector[];
+  page: number;
+  totalPages: number;
+}
+
+const { pageConnectors, page, totalPages } = Astro.props;
+const listId = 'connector-list';
+---
+
+<!-- The search island hydrates client-side; with JS disabled it never mounts and
+     this static, paginated list (real <a href> links) is the entire discovery
+     surface, plus the browser's own find-in-page (step6-web-ui.md §5). -->
+<SearchBox client:load listContainerId={listId} />
+
+<ul id={listId} aria-label="Connectors">
+  {
+    pageConnectors.map((c) => (
+      <li data-connector-name={c.name}>
+        <a href={`/connectors/${c.name}/`}>
+          <strong>{c.displayName}</strong> <code>{c.name}</code>
+        </a>{' '}
+        <VerifiedBadge verified={c.versions.some((v) => v.isDefault && v.verified)} />
+        <EffectiveStatusTag status={c.effectiveStatus} />
+        <p title={c.description}>{c.description}</p>
+      </li>
+    ))
+  }
+</ul>
+
+{
+  totalPages > 1 && (
+    <nav aria-label="Pagination">
+      <ul class="pagination">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+          <li>
+            {n === page ? (
+              <span aria-current="page">{n}</span>
+            ) : (
+              <a href={n === 1 ? '/' : `/page/${n}/`}>{n}</a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

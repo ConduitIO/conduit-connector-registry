@@ -1,0 +1,78 @@
+name: CI
+
+# Tier-2 gate (step6-web-ui.md §3, §8): build -> typecheck/lint -> a11y scan ->
+# local byte-compare. This is the "does this PR's site actually build cleanly
+# from the index and pass its own quality bars" check — it does NOT deploy
+# (see deploy.yml) and it never runs against a network-fetched index; it always
+# uses this repo's own colocated index/index.json (step6-web-ui.md §2's
+# no-network-hop-for-the-primary-path decision).
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'index/**'
+      - '.github/workflows/ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'index/**'
+      - '.github/workflows/ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck (astro check)
+        run: npm run typecheck
+
+      - name: Unit tests (Vitest)
+        run: npm test
+
+      # Build step 1-8 (step6-web-ui.md §3): verify -> freshness -> derive ->
+      # scarf stats (best-effort) -> astro build -> byte-verify dist/index.json.
+      # A tampered/stale/schema-too-new index/index.json fails here, non-zero
+      # exit, no dist/ produced — see test/verifyIndex.test.ts and
+      # test/buildPipeline.test.ts for the unit-level equivalent of this gate.
+      - name: Build site (verify index -> derive -> astro build -> byte-verify)
+        run: npm run build
+
+      - name: Install Playwright's Chromium (for the a11y scan only)
+        run: npx playwright install --with-deps chromium
+
+      # Step 8: automated a11y scan, zero critical/serious violations gates
+      # everything after it (step6-web-ui.md §7). Real browser — see
+      # scripts/axe-scan.ts's file header for why jsdom isn't used here.
+      - name: Accessibility scan (axe-core via Playwright/Chromium)
+        run: npm run axe
+
+      - name: Upload dist/ (for inspection / the deploy job on main)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: web/dist
+          retention-days: 7

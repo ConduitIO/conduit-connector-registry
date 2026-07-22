@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ConnectorList from '../components/ConnectorList.astro';
+import { loadRenderModel } from '../lib/loadRenderModel';
+import { paginate } from '../lib/pagination';
+
+const model = loadRenderModel();
+const pages = paginate(model.connectors);
+const pageConnectors = pages[0] ?? [];
+---
+
+<BaseLayout title="Conduit connector registry">
+  <h1>Connectors</h1>
+  <p>
+    {model.connectors.length} connector{model.connectors.length === 1 ? '' : 's'} in the registry. Install
+    any of them with <code>conduit connectors install &lt;name&gt;</code>.
+  </p>
+  <ConnectorList pageConnectors={pageConnectors} page={1} totalPages={pages.length} />
+</BaseLayout>

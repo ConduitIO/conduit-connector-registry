@@ -1,0 +1,34 @@
+.banner {
+  display: flex;
+  gap: var(--conduit-space-3);
+  align-items: flex-start;
+  padding: var(--conduit-space-4);
+  border-radius: var(--conduit-radius-md);
+  border: 1px solid var(--banner-color);
+  background: color-mix(in srgb, var(--banner-color) 10%, var(--conduit-color-surface));
+  margin-block: var(--conduit-space-4);
+}
+
+.glyph {
+  font-size: 1.1rem;
+  line-height: 1.3;
+  color: var(--banner-color);
+  flex: none;
+}
+
+.body {
+  color: var(--conduit-color-text);
+}
+
+.title {
+  /* Contrast note: kept in --conduit-color-text (via .body), not
+     --banner-color, for the same 4.5:1 reason documented in
+     VerifiedBadge.module.css — the colored border + aria-hidden glyph carry
+     the severity accent instead. */
+  font-weight: 700;
+  margin: 0 0 var(--conduit-space-1);
+}
+
+.reason {
+  margin: 0;
+}

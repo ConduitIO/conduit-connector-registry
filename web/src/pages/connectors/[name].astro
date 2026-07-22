@@ -1,0 +1,186 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
+import { EffectiveStatusTag } from '../../components/EffectiveStatusTag';
+import { RevocationBanner } from '../../components/RevocationBanner';
+import { CopyInstallButton } from '../../components/CopyInstallButton';
+import { CompatCell } from '../../components/CompatCell';
+import { loadRenderModel } from '../../lib/loadRenderModel';
+import { sortVersionsDescending } from '../../lib/semver';
+
+export function getStaticPaths() {
+  const model = loadRenderModel();
+  return model.connectors.map((c) => ({ params: { name: c.name }, props: { connector: c } }));
+}
+
+const { connector } = Astro.props;
+const versionsNewestFirst = sortVersionsDescending(connector.versions, (v) => v.version);
+const defaultVersion = versionsNewestFirst.find((v) => v.isDefault) ?? versionsNewestFirst[0];
+const installCommand = `conduit connectors install ${connector.name}`;
+---
+
+<BaseLayout
+  title={`${connector.displayName} — Conduit connector registry`}
+  description={connector.description}
+>
+  <header>
+    <h1>
+      {connector.displayName}
+      <code>{connector.name}</code>
+    </h1>
+    <p>
+      <VerifiedBadge verified={defaultVersion ? defaultVersion.verified : false} />
+      <EffectiveStatusTag status={connector.effectiveStatus} />
+    </p>
+    {
+      connector.repository && (
+        <p>
+          <a href={connector.repository} target="_blank" rel="noopener noreferrer">
+            Source repository
+          </a>
+        </p>
+      )
+    }
+    <p>{connector.description}</p>
+  </header>
+
+  {
+    connector.effectiveStatus === 'revoked' && connector.revoked && (
+      <RevocationBanner severity="revoked" reason={connector.revoked.reason} />
+    )
+  }
+  {
+    connector.effectiveStatus === 'yanked' && !connector.revoked && (
+      <RevocationBanner
+        severity="yanked"
+        reason={
+          versionsNewestFirst
+            .map((v) => v.yanked?.reason)
+            .filter((r): r is string => Boolean(r))
+            .join(' ') || 'All published versions of this connector have been yanked.'
+        }
+      />
+    )
+  }
+
+  <section aria-labelledby="install-heading">
+    <h2 id="install-heading">Install</h2>
+    {
+      connector.suppressInstallCommand ? (
+        <p>
+          Install is disabled for this connector — see the notice above. Do not attempt to install
+          it manually until the status changes.
+        </p>
+      ) : (
+        <CopyInstallButton command={installCommand} client:load />
+      )
+    }
+  </section>
+
+  <section aria-labelledby="versions-heading">
+    <h2 id="versions-heading">Versions</h2>
+    <table>
+      <caption class="visually-hidden"
+        >Published versions of {connector.displayName}, newest first</caption
+      >
+      <thead>
+        <tr>
+          <th scope="col">Version</th>
+          <th scope="col">Released</th>
+          <th scope="col">Min Conduit</th>
+          <th scope="col">Min protocol</th>
+          <th scope="col">Status</th>
+          <th scope="col">Verified</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          versionsNewestFirst.map((v) => (
+            <tr data-yanked={Boolean(v.yanked)}>
+              <th scope="row">
+                <code>{v.version}</code>
+              </th>
+              <td>{v.releasedAt ? new Date(v.releasedAt).toISOString().slice(0, 10) : '—'}</td>
+              <td>
+                <code>{v.minConduitVersion}</code>
+              </td>
+              <td>
+                <code>{v.minProtocolVersion}</code>
+              </td>
+              <td>
+                {v.yanked ? (
+                  <details>
+                    <summary>Yanked</summary>
+                    <p>{v.yanked.reason}</p>
+                  </details>
+                ) : v.deprecated ? (
+                  <EffectiveStatusTag status="deprecated" />
+                ) : (
+                  'Active'
+                )}
+              </td>
+              <td>
+                <VerifiedBadge verified={v.verified} />
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </section>
+
+  {
+    defaultVersion && (
+      <section aria-labelledby="compat-heading">
+        <h2 id="compat-heading">Platform compatibility — {defaultVersion.version}</h2>
+        <table>
+          <caption>
+            OS / architecture support for version {defaultVersion.version}. Every cell is either
+            "Available" or "Not available" — never blank.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">OS \ Arch</th>
+              {Array.from(new Set(defaultVersion.compat.map((c) => c.arch))).map((arch) => (
+                <th scope="col">{arch}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(new Set(defaultVersion.compat.map((c) => c.os))).map((os) => (
+              <tr>
+                <th scope="row">{os}</th>
+                {defaultVersion.compat
+                  .filter((c) => c.os === os)
+                  .map((c) => (
+                    <CompatCell
+                      os={c.os}
+                      arch={c.arch}
+                      available={c.available}
+                      {...(connector.repository
+                        ? { requestUrl: `${connector.repository}/issues` }
+                        : {})}
+                    />
+                  ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
+
+  <section aria-labelledby="stats-heading">
+    <h2 id="stats-heading">Downloads</h2>
+    {
+      connector.stats && !connector.stats.unavailable ? (
+        <p>
+          {connector.stats.totalDownloads?.toLocaleString()} total downloads, as of{' '}
+          {new Date(connector.stats.asOf).toISOString().slice(0, 10)}.
+        </p>
+      ) : (
+        <p>Download stats unavailable.</p>
+      )
+    }
+  </section>
+</BaseLayout>

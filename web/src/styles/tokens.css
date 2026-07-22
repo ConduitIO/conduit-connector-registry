@@ -1,0 +1,64 @@
+/*
+ * Conduit UI design tokens.
+ *
+ * Framework-agnostic CSS custom properties. Every property is namespaced with
+ * `--conduit-` so a future shared package (@conduitio/design-tokens, consumed by
+ * both this UI and the connector-registry web UI) can be extracted without a
+ * breaking rename. Keep this file free of any framework/build-tool syntax.
+ *
+ * Theme-aware: light by default, dark via prefers-color-scheme.
+ */
+:root {
+  /* Color */
+  --conduit-color-bg: #ffffff;
+  --conduit-color-surface: #f7f8fa;
+  --conduit-color-text: #1a1d21;
+  --conduit-color-text-muted: #5b6470;
+  --conduit-color-border: #e2e5ea;
+  --conduit-color-accent: #2f6fed;
+  /* Status colors map to the wire-visible pipeline states. `unknown` is the
+     defensive fallback for STATUS_UNSPECIFIED (pre-P3 server / malformed state). */
+  --conduit-color-status-running: #1f9d55;
+  --conduit-color-status-stopped: #5b6470;
+  --conduit-color-status-degraded: #d64545;
+  --conduit-color-status-recovering: #d99e00;
+  --conduit-color-status-unknown: #8a93a0;
+  /* Per-stage record diff (UI-4). Never the sole signal — always paired with a
+     +/-/~ glyph and a text label (see recordFlow/Drawer.tsx). */
+  --conduit-color-diff-added: #1f9d55;
+  --conduit-color-diff-removed: #d64545;
+  --conduit-color-diff-changed: #d99e00;
+
+  /* Spacing */
+  --conduit-space-1: 0.25rem;
+  --conduit-space-2: 0.5rem;
+  --conduit-space-3: 0.75rem;
+  --conduit-space-4: 1rem;
+  --conduit-space-6: 1.5rem;
+  --conduit-space-8: 2rem;
+
+  /* Typography */
+  --conduit-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --conduit-font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --conduit-font-size-sm: 0.875rem;
+  --conduit-font-size-base: 1rem;
+  --conduit-font-size-lg: 1.25rem;
+
+  /* Radii */
+  --conduit-radius-sm: 4px;
+  --conduit-radius-md: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --conduit-color-bg: #14171b;
+    --conduit-color-surface: #1c2026;
+    --conduit-color-text: #e6e9ee;
+    --conduit-color-text-muted: #9aa4b1;
+    --conduit-color-border: #2b313a;
+    --conduit-color-accent: #5b8bf5;
+    --conduit-color-diff-added: #35c46b;
+    --conduit-color-diff-removed: #e3685f;
+    --conduit-color-diff-changed: #e0b13a;
+  }
+}
