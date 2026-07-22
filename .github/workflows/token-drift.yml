@@ -1,0 +1,83 @@
+name: Token drift check
+
+# Drift DETECTION, not prevention (step6-web-ui.md §6) — there is no shared npm
+# package making divergence between this repo's tokens.css and conduit-ui's
+# structurally impossible (deliberate: "tokens + duplicated primitives, not a
+# package"). This runs on a schedule and opens/updates an issue when the two
+# copies diverge, standing in for AC §8 item 11 as a continuous check rather
+# than a one-time manual comparison.
+on:
+  schedule:
+    - cron: '0 8 * * 1' # weekly, Monday 08:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check token drift against conduit-ui
+        id: drift
+        run: npm run -s check:tokens
+        continue-on-error: true
+
+      - name: Open/update an issue on divergence
+        if: steps.drift.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'tokens.css has diverged from conduit-ui';
+            const body = [
+              'The scheduled token-drift check found that `web/src/styles/tokens.css` no longer',
+              "byte-matches conduit-ui's `src/tokens/tokens.css`.",
+              '',
+              'Reconcile manually: either copy conduit-ui\'s tokens.css verbatim again, or, if the',
+              'divergence is intentional, document why in this issue and close it (see',
+              'conduit-registry-plans/step6-web-ui.md §6).',
+              '',
+              `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'token-drift',
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Still diverged as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['token-drift'],
+              });
+            }
+
+      - name: Fail the job if drift was found (surfaces in the Actions tab too)
+        if: steps.drift.outcome == 'failure'
+        run: exit 1

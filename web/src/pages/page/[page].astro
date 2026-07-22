@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ConnectorList from '../../components/ConnectorList.astro';
+import { loadRenderModel } from '../../lib/loadRenderModel';
+import { paginate } from '../../lib/pagination';
+
+export function getStaticPaths() {
+  const model = loadRenderModel();
+  const pages = paginate(model.connectors);
+  // Page 1 lives at `/` (src/pages/index.astro) — this route covers 2..N only,
+  // as real, crawlable per-page URLs (step6-web-ui.md §5).
+  return pages.slice(1).map((_, i) => ({ params: { page: String(i + 2) } }));
+}
+
+const { page } = Astro.params;
+const pageNum = Number(page);
+const model = loadRenderModel();
+const pages = paginate(model.connectors);
+const pageConnectors = pages[pageNum - 1] ?? [];
+---
+
+<BaseLayout title={`Connectors — page ${pageNum} — Conduit connector registry`}>
+  <h1>Connectors</h1>
+  <ConnectorList pageConnectors={pageConnectors} page={pageNum} totalPages={pages.length} />
+</BaseLayout>

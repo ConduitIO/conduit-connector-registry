@@ -1,0 +1,45 @@
+---
+import '../styles/tokens.css';
+import '../styles/global.css';
+
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'The Conduit connector registry — signed, verifiable connector distribution.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <nav aria-label="Primary">
+        <a href="/">Conduit connector registry</a>
+      </nav>
+    </header>
+    <main id="main-content">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p>
+          Generated from the <a href="/index.json">signed index</a>. Source:
+          <a href="https://github.com/ConduitIO/conduit-connector-registry"
+            >ConduitIO/conduit-connector-registry</a
+          >.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
