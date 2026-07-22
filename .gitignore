@@ -1,0 +1,5 @@
+
+# Go build artifacts
+/index-sign
+cmd/index-sign/index-sign
+index/*.tmp

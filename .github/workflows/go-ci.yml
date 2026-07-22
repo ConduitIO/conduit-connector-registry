@@ -1,0 +1,39 @@
+name: go-ci
+
+# Builds + tests the Go tooling in this repo (cmd/index-sign), whose round-trip
+# tests prove the signer's output verifies against conduit's shipped
+# index.Verify — the signer and verifier must never drift.
+on:
+  pull_request:
+    paths:
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/go-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/go-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd/)"
