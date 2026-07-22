@@ -4,19 +4,19 @@ import { fileURLToPath } from 'node:url';
 import type { SignedIndex } from '../../src/lib/schema';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '../../..');
 
 /** Loads the real frozen fixture this whole plan is grounded in
- * (`index/index.json`, itself a copy of ConduitIO/conduit's
+ * (a dedicated 2-connector `sample-index.json` fixture, decoupled from the
+ * live `index/index.json` which is empty at bootstrap; itself derived from
  * `registry-index/sample-index.json`) as a fresh deep clone every call, so
  * tests can freely mutate their own copy without cross-test interference. */
 export function loadSampleIndex(): SignedIndex {
-  const raw = readFileSync(path.join(repoRoot, 'index', 'index.json'), 'utf-8');
+  const raw = readFileSync(path.join(here, 'sample-index.json'), 'utf-8');
   return JSON.parse(raw) as SignedIndex;
 }
 
 export function loadSampleIndexRaw(): string {
-  return readFileSync(path.join(repoRoot, 'index', 'index.json'), 'utf-8');
+  return readFileSync(path.join(here, 'sample-index.json'), 'utf-8');
 }
 
 /** The sample index's own timestamp — pass as `now` to verifyAndParseIndex in
