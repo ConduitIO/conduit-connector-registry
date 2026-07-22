@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SITE_URL: https://registry.conduit.io
+  SITE_URL: https://registry.conduitdata.io
 
 jobs:
   build:
