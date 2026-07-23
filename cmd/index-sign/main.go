@@ -36,6 +36,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
 
 	"github.com/conduitio/conduit/pkg/registry/index"
 )
@@ -58,6 +60,8 @@ func run() error {
 	role := flag.String("role", "root", `signature role: "root" (content changes) or "freshness" (liveness only)`)
 	keyEnv := flag.String("key-env", "ROOT_SIGNING_KEY", "env var holding the PKCS#8 PEM ed25519 private key")
 	keyFile := flag.String("key-file", "", "file holding the PKCS#8 PEM ed25519 private key (overrides -key-env)")
+	assembleFrom := flag.String("assemble-from", "", "directory of per-connector JSON files (index/connectors/*.json); when set, the payload's connectors[] is assembled from them and index.version is bumped from -in")
+	timestamp := flag.String("timestamp", "", "RFC3339 index timestamp for assembled payloads (default: -in's current timestamp preserved is NOT done; caller should pass one)")
 	flag.Parse()
 
 	if *role != "root" && *role != "freshness" {
@@ -67,7 +71,15 @@ func run() error {
 		*out = *in
 	}
 
-	payload, err := readPayload(*in)
+	var (
+		payload json.RawMessage
+		err     error
+	)
+	if *assembleFrom != "" {
+		payload, err = assemblePayload(*assembleFrom, *in, *timestamp)
+	} else {
+		payload, err = readPayload(*in)
+	}
 	if err != nil {
 		return err
 	}
@@ -129,6 +141,67 @@ func signPayload(payload json.RawMessage, role string, priv ed25519.PrivateKey) 
 			Signature: base64.StdEncoding.EncodeToString(sig),
 		}},
 	}, nil
+}
+
+// assemblePayload builds the index payload's connectors[] from the per-connector
+// source files in dir (each a serialized index.Connector, as the publish Action
+// writes to index/connectors/<name>.json), sorted by filename for a
+// deterministic result. index.version is bumped by 1 from the current signed
+// index at currentPath (monotonic — the client rejects a rollback); timestamp
+// (RFC3339) is set from ts. Connectors are embedded as raw JSON so this tool
+// never has to model the full connector schema — the publish Action already
+// produced schema-valid files, and index.Verify re-checks the whole payload.
+func assemblePayload(dir, currentPath, ts string) (json.RawMessage, error) {
+	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, fmt.Errorf("globbing %s: %w", dir, err)
+	}
+	sort.Strings(files) // deterministic order; filename is <name>.json so this is name order
+
+	connectors := make([]json.RawMessage, 0, len(files))
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", f, err)
+		}
+		if !json.Valid(b) {
+			return nil, fmt.Errorf("%s is not valid JSON", f)
+		}
+		connectors = append(connectors, json.RawMessage(b))
+	}
+
+	nextVersion := currentIndexVersion(currentPath) + 1
+	if ts == "" {
+		return nil, fmt.Errorf("assemble requires -timestamp (RFC3339)")
+	}
+
+	payload := map[string]any{
+		"schemaVersion": 1,
+		"index":         map[string]any{"version": nextVersion, "timestamp": ts},
+		"connectors":    connectors,
+	}
+	return json.Marshal(payload)
+}
+
+// currentIndexVersion reads index.version from the current signed index (an
+// envelope) at path, returning 0 if it can't be read (so the first assemble
+// starts at version 1).
+func currentIndexVersion(path string) int {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	var env struct {
+		Payload struct {
+			Index struct {
+				Version int `json:"version"`
+			} `json:"index"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return 0
+	}
+	return env.Payload.Index.Version
 }
 
 // readPayload accepts either a full envelope (extract .payload) or a bare
