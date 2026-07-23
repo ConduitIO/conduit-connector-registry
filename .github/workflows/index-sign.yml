@@ -55,11 +55,12 @@ jobs:
           printf '{"schemaVersion":1,"index":{"version":1,"timestamp":"%s"},"connectors":[]}\n' "$TS" > index/index.json
           echo "reset index/index.json to empty seed (timestamp $TS)"
 
-      - name: Root-sign the index
+      - name: Assemble + root-sign the index
         env:
           ROOT_SIGNING_KEY: ${{ secrets.ROOT_SIGNING_KEY }}
           FRESHNESS_SIGNING_KEY: ${{ secrets.FRESHNESS_SIGNING_KEY }}
           ROLE: ${{ inputs.role }}
+          RESET: ${{ inputs.reset-to-empty }}
         run: |
           set -euo pipefail
           if [ "$ROLE" = "freshness" ]; then
@@ -72,7 +73,15 @@ jobs:
             exit 1
           fi
           # index-sign reads the key from the named env var (never an arg/log).
-          /tmp/index-sign -in index/index.json -out index/index.json -role "$ROLE" -key-env "$KEYENV"
+          ARGS=(-in index/index.json -out index/index.json -role "$ROLE" -key-env "$KEYENV")
+          if [ "$RESET" != "true" ]; then
+            # Rebuild payload.connectors[] from the per-connector source files
+            # the publish Action's register PRs add (index/connectors/*.json),
+            # bumping index.version monotonically. reset-to-empty skips this and
+            # signs the empty seed the bootstrap step wrote.
+            ARGS+=(-assemble-from index/connectors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+          fi
+          /tmp/index-sign "${ARGS[@]}"
 
       - name: Commit + push the signed index (if changed)
         env:
