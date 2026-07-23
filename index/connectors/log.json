@@ -1,0 +1,63 @@
+{
+  "name": "log",
+  "repository": "https://github.com/ConduitIO/conduit-connector-log",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-connector-log/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.7.4",
+      "releasedAt": "2026-07-23T02:22:11.085816703Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_linux_amd64",
+          "sha256": "84cc97cb33484b2216c00e8c6f3476315b01fa28ab20ca6453924793863b5b28",
+          "size": 26557746,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_linux_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_linux_arm64",
+          "sha256": "96aa0e80f6649d8522ebe5550a93c5ff43a013608e670be7cd13019ecfe20b9f",
+          "size": 25451667,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_linux_arm64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_darwin_amd64",
+          "sha256": "018b80cd05ccf004689ad48c399668cd15d5ff60d2ca5163fd8c2218a518b18d",
+          "size": 26772480,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_darwin_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_darwin_arm64",
+          "sha256": "6eb2dd01b282bd7d871a21ccc5339d7335cfb2f97d5d87db47c9eb2b07917e60",
+          "size": 25821170,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.7.4/log_v0.7.4_darwin_arm64.sigstore.json"
+          }
+        }
+      ],
+      "deprecated": false
+    }
+  ]
+}
