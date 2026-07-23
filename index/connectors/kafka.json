@@ -1,0 +1,63 @@
+{
+  "name": "kafka",
+  "repository": "https://github.com/ConduitIO/conduit-connector-kafka",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-connector-kafka/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.12.4",
+      "releasedAt": "2026-07-23T02:22:55.344879293Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_linux_amd64",
+          "sha256": "ace3b47b3afa2c9129f47fb119e395d50e7eb59f94bc19e50ace453f9ccb1d72",
+          "size": 33313208,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_linux_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_linux_arm64",
+          "sha256": "60ee716053499be1f557f7e831c6e1c9e3721aff53c66c9227dec9980021fdef",
+          "size": 31845270,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_linux_arm64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_darwin_amd64",
+          "sha256": "587c507cea7890d9c08dc789c32124501a6746c088887158028886099d5f2c2f",
+          "size": 33544736,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_darwin_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_darwin_arm64",
+          "sha256": "35f6319f43de4196eb3fd0dabc3fe22d0b1e8a1ae22e001ebf8bb75cfc9b2ffc",
+          "size": 32318162,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.12.4/kafka_v0.12.4_darwin_arm64.sigstore.json"
+          }
+        }
+      ],
+      "deprecated": false
+    }
+  ]
+}
