@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # dispatch deploy.yml after committing the re-signed index
 
 jobs:
   sign:
@@ -97,6 +98,11 @@ jobs:
           git add index/index.json
           git commit -m "chore(index): root-sign index/index.json"
           git push origin HEAD:main
+          # GitHub does NOT trigger workflows for pushes made with GITHUB_TOKEN
+          # (loop prevention), so deploy.yml won't fire on this commit — dispatch
+          # it explicitly so the re-signed index actually gets served.
+          gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "dispatched deploy.yml for the re-signed index"
 
       - name: Job summary
         env:
