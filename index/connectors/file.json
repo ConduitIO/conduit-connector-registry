@@ -111,6 +111,63 @@
         }
       ],
       "deprecated": false
+    },
+    {
+      "version": "v0.10.7",
+      "releasedAt": "2026-07-23T11:10:52.743361666Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_linux_amd64",
+          "sha256": "af813179c2be5af30da3844a71b96efbc38892a2cd6c037d7c60fdf35a67e73f",
+          "size": 26800522,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_linux_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_linux_arm64",
+          "sha256": "37ce860667d7a12b2ef18db0ea8d63bbe2ca069eb8fa1626c611c067b6b28cf7",
+          "size": 25715011,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_linux_arm64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_darwin_amd64",
+          "sha256": "609482ec7fc47376dc8d07a0c2a47415fb4dcdd88e33d6142489d5daa5d3da01",
+          "size": 27038336,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_darwin_amd64.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_darwin_arm64",
+          "sha256": "663f0d8bf4322eec725863f6ecd8c563c0c3e2a87947b2a1b44ef33017a6f5b0",
+          "size": 26080818,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/file_v0.10.7_darwin_arm64.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-file/releases/download/v0.10.7/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
