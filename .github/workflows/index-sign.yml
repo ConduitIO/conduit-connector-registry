@@ -76,11 +76,14 @@ jobs:
           # index-sign reads the key from the named env var (never an arg/log).
           ARGS=(-in index/index.json -out index/index.json -role "$ROLE" -key-env "$KEYENV")
           if [ "$RESET" != "true" ]; then
-            # Rebuild payload.connectors[] from the per-connector source files
-            # the publish Action's register PRs add (index/connectors/*.json),
-            # bumping index.version monotonically. reset-to-empty skips this and
-            # signs the empty seed the bootstrap step wrote.
-            ARGS+=(-assemble-from index/connectors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+            # Rebuild payload.connectors[] AND payload.processors[] from the
+            # per-entry source files the publish Action's register PRs add
+            # (index/connectors/*.json, index/processors/*.json), bumping
+            # index.version monotonically. processors[] is omitted entirely when
+            # index/processors has no files, keeping a connector-only index
+            # byte-identical to the pre-processor schema. reset-to-empty skips
+            # this and signs the empty seed the bootstrap step wrote.
+            ARGS+=(-assemble-from index/connectors -assemble-processors-from index/processors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
           fi
           /tmp/index-sign "${ARGS[@]}"
 
@@ -115,6 +118,7 @@ jobs:
             echo "- role: \`${ROLE}\`"
             echo "- reset-to-empty: \`${RESET}\`"
             echo "- connectors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload']['connectors']))")\`"
+            echo "- processors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload'].get('processors',[])))")\`"
             echo ""
             echo "Deploy (\`deploy.yml\`) serves it at https://registry.conduitdata.io/index.json."
           } >> "$GITHUB_STEP_SUMMARY"

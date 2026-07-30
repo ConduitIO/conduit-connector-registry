@@ -2,7 +2,7 @@ module github.com/ConduitIO/conduit-connector-registry
 
 go 1.25.8
 
-require github.com/conduitio/conduit v0.18.0-nightly.20260722.0.20260722163009-946ec22e25b0
+require github.com/conduitio/conduit v0.20.0-nightly.20260730.0.20260730153200-b55f9c42693c
 
 require (
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
