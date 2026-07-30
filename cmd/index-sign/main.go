@@ -21,10 +21,24 @@
 // writes {payload: <canonical>, signatures: [{role, keyId, algorithm, signature}]}.
 //
 // Role semantics (see index.Verify): a first-time client can only verify a
-// ROOT signature, so every CONTENT change (adding/removing a connector) must be
-// root-signed. Freshness signatures only refresh timestamp/version over a
-// byte-identical connectors[] and are useless to a client that hasn't seen the
-// index — so --role root is the bootstrap and per-content-change signer.
+// ROOT signature, so every CONTENT change (adding/removing a connector or a
+// processor) must be root-signed. Freshness signatures only refresh
+// timestamp/version over a byte-identical CONTENT SUBTREE — connectors[] AND
+// processors[] (index.HashContentSubtree; design doc
+// 20260727-registry-processor-artifacts, D4) — and are useless to a client that
+// hasn't seen the index — so --role root is the bootstrap and per-content-change
+// signer.
+//
+// This tool does NOT compute or embed any content hash. The freshness
+// content-identity check is enforced entirely CLIENT-SIDE: index.Verify
+// canonicalizes the received payload, and for a freshness-only signature
+// recomputes index.HashContentSubtree(connectors[], processors[]) and compares
+// it against the client's persisted last-root-verified hash (verify.go's
+// matchesLastVerifiedContent). The signer's only job is to sign the whole
+// canonical payload — processors[] included when present — so the subtree the
+// client hashes is exactly the subtree this tool signed. Because both sides call
+// the same imported index package for Canonicalize/HashContentSubtree, signer
+// and verifier cannot drift on what "the content" is.
 package main
 
 import (
@@ -61,6 +75,7 @@ func run() error {
 	keyEnv := flag.String("key-env", "ROOT_SIGNING_KEY", "env var holding the PKCS#8 PEM ed25519 private key")
 	keyFile := flag.String("key-file", "", "file holding the PKCS#8 PEM ed25519 private key (overrides -key-env)")
 	assembleFrom := flag.String("assemble-from", "", "directory of per-connector JSON files (index/connectors/*.json); when set, the payload's connectors[] is assembled from them and index.version is bumped from -in")
+	assembleProcessorsFrom := flag.String("assemble-processors-from", "", "directory of per-processor JSON files (index/processors/*.json); when set, the payload's processors[] is assembled from them, mirroring --assemble-from for connectors. When empty (or the dir has no files) the processors[] key is omitted entirely, keeping a connector-only index byte-identical to the pre-processor schema")
 	timestamp := flag.String("timestamp", "", "RFC3339 index timestamp for assembled payloads (default: -in's current timestamp preserved is NOT done; caller should pass one)")
 	flag.Parse()
 
@@ -75,8 +90,8 @@ func run() error {
 		payload json.RawMessage
 		err     error
 	)
-	if *assembleFrom != "" {
-		payload, err = assemblePayload(*assembleFrom, *in, *timestamp)
+	if *assembleFrom != "" || *assembleProcessorsFrom != "" {
+		payload, err = assemblePayload(*assembleFrom, *assembleProcessorsFrom, *in, *timestamp)
 	} else {
 		payload, err = readPayload(*in)
 	}
@@ -144,30 +159,31 @@ func signPayload(payload json.RawMessage, role string, priv ed25519.PrivateKey) 
 }
 
 // assemblePayload builds the index payload's connectors[] from the per-connector
-// source files in dir (each a serialized index.Connector, as the publish Action
-// writes to index/connectors/<name>.json), sorted by filename for a
-// deterministic result. index.version is bumped by 1 from the current signed
-// index at currentPath (monotonic — the client rejects a rollback); timestamp
-// (RFC3339) is set from ts. Connectors are embedded as raw JSON so this tool
-// never has to model the full connector schema — the publish Action already
+// source files in connDir (each a serialized index.Connector, as the publish
+// Action writes to index/connectors/<name>.json) and, when procDir is non-empty,
+// its processors[] from the per-processor source files there (each a serialized
+// index.Processor, index/processors/<name>.json) — the exact same glob → sort →
+// embed-raw flow. Both collections are sorted by filename for a deterministic
+// result. index.version is bumped by 1 from the current signed index at
+// currentPath (monotonic — the client rejects a rollback); timestamp (RFC3339)
+// is set from ts. Entries are embedded as raw JSON so this tool never has to
+// model the full connector/processor schema — the publish Action already
 // produced schema-valid files, and index.Verify re-checks the whole payload.
-func assemblePayload(dir, currentPath, ts string) (json.RawMessage, error) {
-	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+//
+// The processors[] key is written ONLY when at least one processor entry exists.
+// A connector-only assemble therefore omits the key entirely, so its canonical
+// bytes are byte-identical to the pre-processor schema — mirroring the
+// index.Payload.Processors `omitempty` tag, which the design doc (failure mode 6)
+// marks load-bearing: an empty processors[] must never drift a connector-only
+// index's bytes or the content-subtree hash computed over it.
+func assemblePayload(connDir, procDir, currentPath, ts string) (json.RawMessage, error) {
+	connectors, err := readEntries(connDir)
 	if err != nil {
-		return nil, fmt.Errorf("globbing %s: %w", dir, err)
+		return nil, err
 	}
-	sort.Strings(files) // deterministic order; filename is <name>.json so this is name order
-
-	connectors := make([]json.RawMessage, 0, len(files))
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", f, err)
-		}
-		if !json.Valid(b) {
-			return nil, fmt.Errorf("%s is not valid JSON", f)
-		}
-		connectors = append(connectors, json.RawMessage(b))
+	processors, err := readEntries(procDir)
+	if err != nil {
+		return nil, err
 	}
 
 	nextVersion := currentIndexVersion(currentPath) + 1
@@ -180,7 +196,43 @@ func assemblePayload(dir, currentPath, ts string) (json.RawMessage, error) {
 		"index":         map[string]any{"version": nextVersion, "timestamp": ts},
 		"connectors":    connectors,
 	}
+	// omitempty mirror: only emit processors[] when there is content, so a
+	// connector-only index stays byte-identical to the pre-processor schema.
+	if len(processors) > 0 {
+		payload["processors"] = processors
+	}
 	return json.Marshal(payload)
+}
+
+// readEntries globs dir for *.json, sorts by filename (deterministic; the
+// publish Action names each file <name>.json, so filename order is name order),
+// and returns each file's bytes embedded as raw JSON. An empty dir ("") yields
+// an empty (never nil) slice so connectors[] always marshals to at least [] (a
+// schema-required, possibly-empty array) while processors[] can be tested for
+// emptiness by the caller. Each file must be valid JSON; index.Verify re-checks
+// the whole assembled payload against the typed schema.
+func readEntries(dir string) ([]json.RawMessage, error) {
+	if dir == "" {
+		return []json.RawMessage{}, nil
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, fmt.Errorf("globbing %s: %w", dir, err)
+	}
+	sort.Strings(files) // deterministic order; filename is <name>.json so this is name order
+
+	entries := make([]json.RawMessage, 0, len(files))
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", f, err)
+		}
+		if !json.Valid(b) {
+			return nil, fmt.Errorf("%s is not valid JSON", f)
+		}
+		entries = append(entries, json.RawMessage(b))
+	}
+	return entries, nil
 }
 
 // currentIndexVersion reads index.version from the current signed index (an
