@@ -129,7 +129,7 @@
         "name": {
           "type": "string",
           "pattern": "^[a-z0-9]([a-z0-9.-]{0,61}[a-z0-9])?$",
-          "description": "Unique registry name for the processor, e.g. \"ai.chunk\" or \"ai.embed\". Like a connector name but ADDITIONALLY permits interior dots: a standalone processor's install id is its own Specification().Name, which is conventionally dotted/namespaced (ai.chunk, ai.embed), and conduit binds the three together — `install` resolves the argument by EXACT match against this name (findProcessor, no fuzzy suggestion), and install-time validateProcessorWASM refuses a .wasm whose Specification().Name disagrees with this index name. So this name MUST equal the module's own Specification().Name verbatim, dots included (connectors keep the dotless rule; only this collection was widened)."
+          "description": "Unique registry name for the processor, e.g. \"ai.chunk\". Like a connector name but also permits dots, because standalone processors are conventionally namespaced (e.g. the \"ai.\" prefix on ai.chunk/ai.embed) and the resolver exact-matches this against the WASM's own Specification().Name. Resolution by `install` is exact-match only. The runtime registers the processor under the name from its own Specification(), NOT this index name -- install-time validation (PR-B) binds the two."
         },
         "displayName": {
           "type": "string",
