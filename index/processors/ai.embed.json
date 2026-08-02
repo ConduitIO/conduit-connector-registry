@@ -26,7 +26,7 @@
       },
       "slsaProvenance": {
         "bundleURL": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/multiple.intoto.jsonl",
-        "predicateType": "https://slsa.dev/provenance/v1"
+        "predicateType": "https://slsa.dev/provenance/v0.2"
       },
       "deprecated": false
     }
