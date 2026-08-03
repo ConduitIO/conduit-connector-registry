@@ -713,9 +713,79 @@
       }
     ],
     "index": {
-      "timestamp": "2026-07-23T12:14:55Z",
-      "version": 7
+      "timestamp": "2026-08-03T19:39:58Z",
+      "version": 8
     },
+    "processors": [
+      {
+        "description": "Split a record's text into chunk records using a configurable strategy (standalone WASM).",
+        "displayName": "Conduit AI Chunking Processor",
+        "name": "ai.chunk",
+        "publisher": {
+          "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-processor-ai/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "expectedOIDCIssuer": "https://token.actions.githubusercontent.com"
+        },
+        "repository": "https://github.com/ConduitIO/conduit-processor-ai",
+        "versions": [
+          {
+            "artifact": {
+              "arch": "wasm",
+              "kind": "wasm-processor",
+              "os": "wasip1",
+              "sha256": "c7da3607342e8699314eb434595ea914d714e0d5752fe3e190640736924892b9",
+              "signature": {
+                "bundleURL": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/conduit-processor-ai-chunk_0.1.0_wasip1_wasm.tar.gz.sigstore.json"
+              },
+              "size": 3918565,
+              "url": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/conduit-processor-ai-chunk_0.1.0_wasip1_wasm.tar.gz"
+            },
+            "deprecated": false,
+            "minConduitVersion": "0.20.0",
+            "minProtocolVersion": "0.14.0",
+            "releasedAt": "2026-08-02T00:13:09Z",
+            "slsaProvenance": {
+              "bundleURL": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/multiple.intoto.jsonl",
+              "predicateType": "https://slsa.dev/provenance/v0.2"
+            },
+            "version": "0.1.0"
+          }
+        ]
+      },
+      {
+        "description": "Generate vector embeddings for records using a pluggable provider (standalone WASM).",
+        "displayName": "Conduit AI Embedding Processor",
+        "name": "ai.embed",
+        "publisher": {
+          "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-processor-ai/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "expectedOIDCIssuer": "https://token.actions.githubusercontent.com"
+        },
+        "repository": "https://github.com/ConduitIO/conduit-processor-ai",
+        "versions": [
+          {
+            "artifact": {
+              "arch": "wasm",
+              "kind": "wasm-processor",
+              "os": "wasip1",
+              "sha256": "885dcfd5cba7790cd1a8597e4a78fb018dbc05128c85063784a81c909aa2e84d",
+              "signature": {
+                "bundleURL": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/conduit-processor-ai-embed_0.1.0_wasip1_wasm.tar.gz.sigstore.json"
+              },
+              "size": 4374820,
+              "url": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/conduit-processor-ai-embed_0.1.0_wasip1_wasm.tar.gz"
+            },
+            "deprecated": false,
+            "minConduitVersion": "0.20.0",
+            "minProtocolVersion": "0.14.0",
+            "releasedAt": "2026-08-02T00:13:09Z",
+            "slsaProvenance": {
+              "bundleURL": "https://github.com/ConduitIO/conduit-processor-ai/releases/download/v0.1.0/multiple.intoto.jsonl",
+              "predicateType": "https://slsa.dev/provenance/v0.2"
+            },
+            "version": "0.1.0"
+          }
+        ]
+      }
+    ],
     "schemaVersion": 1
   },
   "signatures": [
@@ -723,7 +793,7 @@
       "role": "root",
       "keyId": "sha256:d657c2717760931c3771ec151e88fc143642b5c73ce79a3665fbf0f37f009795",
       "algorithm": "ed25519",
-      "signature": "WvwS8WEB2a06c78uGXu7WrVS6ToBMOgLGEn5L0jMm8fo7acMK0gBwNQDkIZ/UCRfPdO3DlbqCFX69I3e64vTDg=="
+      "signature": "cTSsmAu2yj6Cj1g+lOCSc/KsCXJv8jGG1118uBcONrx3p+C9Pg18vMkgJ00G9sqyltGpEt9jwrSUn+133JzJBA=="
     }
   ]
 }
