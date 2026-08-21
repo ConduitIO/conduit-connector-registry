@@ -13,14 +13,39 @@ import { CompatCell } from '../src/components/CompatCell';
  */
 
 describe('VerifiedBadge', () => {
-  it('renders a visible "Verified" label when true', () => {
+  /**
+   * fix/verified-badge-honesty: the badge used to say "Verified" — a claim no
+   * code in this build pipeline actually checks (deriveVerified only confirms
+   * the signed index *references* a signature + provenance bundle; nothing
+   * downloads the artifact or runs cosign). These assertions were updated
+   * deliberately, not deleted, to match the corrected, narrower claim.
+   */
+  it('renders a visible "Signature on file" label when true — never the word "Verified"', () => {
     render(<VerifiedBadge verified={true} />);
-    expect(screen.getByText('Verified')).toBeTruthy();
+    expect(screen.getByText('Signature on file')).toBeTruthy();
+    expect(screen.queryByText('Verified')).toBeNull();
   });
 
-  it('renders a neutral "Not yet verified" label when false (never a failure-styled label)', () => {
+  it('renders a neutral "No signature on file" label when false (never a failure-styled label)', () => {
     render(<VerifiedBadge verified={false} />);
-    expect(screen.getByText('Not yet verified')).toBeTruthy();
+    expect(screen.getByText('No signature on file')).toBeTruthy();
+  });
+
+  it('wires aria-describedby to the given descriptionId, so a screen reader landing on the badge gets the qualifying text — never a tooltip', () => {
+    render(
+      <>
+        <VerifiedBadge verified={true} descriptionId="signature-note" />
+        <p id="signature-note">This site does not cryptographically verify signatures.</p>
+      </>
+    );
+    const badge = screen.getByText('Signature on file').closest('span[aria-describedby]');
+    expect(badge?.getAttribute('aria-describedby')).toBe('signature-note');
+  });
+
+  it('omits aria-describedby entirely when no descriptionId is given, rather than pointing at nothing', () => {
+    render(<VerifiedBadge verified={true} />);
+    const badge = screen.getByText('Signature on file').closest('span');
+    expect(badge?.hasAttribute('aria-describedby')).toBe(false);
   });
 });
 

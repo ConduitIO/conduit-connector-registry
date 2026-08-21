@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { VerifiedBadge } from '../../components/VerifiedBadge';
+import SignatureNote, { SIGNATURE_NOTE_ID } from '../../components/SignatureNote.astro';
 import { EffectiveStatusTag } from '../../components/EffectiveStatusTag';
 import { RevocationBanner } from '../../components/RevocationBanner';
 import { CopyInstallButton } from '../../components/CopyInstallButton';
@@ -29,9 +30,13 @@ const installCommand = `conduit connectors install ${connector.name}`;
       <code>{connector.name}</code>
     </h1>
     <p>
-      <VerifiedBadge verified={defaultVersion ? defaultVersion.verified : false} />
+      <VerifiedBadge
+        verified={defaultVersion ? defaultVersion.verified : false}
+        descriptionId={SIGNATURE_NOTE_ID}
+      />
       <EffectiveStatusTag status={connector.effectiveStatus} />
     </p>
+    <SignatureNote />
     {
       connector.repository && (
         <p>
@@ -90,7 +95,7 @@ const installCommand = `conduit connectors install ${connector.name}`;
           <th scope="col">Min Conduit</th>
           <th scope="col">Min protocol</th>
           <th scope="col">Status</th>
-          <th scope="col">Verified</th>
+          <th scope="col">Signature</th>
         </tr>
       </thead>
       <tbody>
@@ -120,7 +125,7 @@ const installCommand = `conduit connectors install ${connector.name}`;
                 )}
               </td>
               <td>
-                <VerifiedBadge verified={v.verified} />
+                <VerifiedBadge verified={v.verified} descriptionId={SIGNATURE_NOTE_ID} />
               </td>
             </tr>
           ))
