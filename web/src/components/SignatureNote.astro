@@ -1,0 +1,36 @@
+---
+/**
+ * The qualifying text for `VerifiedBadge` (src/components/VerifiedBadge.tsx),
+ * rendered as real, always-visible page content — never a tooltip, never
+ * `.visually-hidden` — so it is reachable on touch devices and present in the
+ * accessible tree for a screen-reader user who lands directly on the badge
+ * (every `VerifiedBadge` on the same page should pass this component's id as
+ * its `descriptionId` prop, wiring `aria-describedby` to this paragraph).
+ *
+ * Every page that renders a `VerifiedBadge` MUST also render exactly one
+ * `SignatureNote` (fix/verified-badge-honesty — closes the false "Verified"
+ * claim called out against registry.conduitdata.io; see the PR description for
+ * the before/after wording). It states plainly what the badge does and does
+ * NOT mean:
+ *   - what ran: this version's entry in the signed index references a
+ *     signature bundle and an SLSA provenance bundle (deriveVerified.ts).
+ *   - what did NOT run: this site never downloads the connector binary and
+ *     performs no cryptographic check of its own — real verification of the
+ *     actual bytes (identity-pinned Sigstore + SLSA provenance) happens at
+ *     install time, in the CLI, not here.
+ * Real build-time cryptographic verification of the index/artifacts is
+ * planned separately (WS4 slices S2/S3) — this component does not claim that
+ * work is done.
+ */
+export const SIGNATURE_NOTE_ID = 'signature-note';
+---
+
+<p id={SIGNATURE_NOTE_ID}>
+  &ldquo;Signature on file&rdquo; means this version&rsquo;s entry in the registry&rsquo;s signed
+  index references a signature bundle and an SLSA provenance bundle &mdash; it does not mean this
+  site has cryptographically verified them. This site never downloads the connector binary, so it
+  cannot confirm that the file you install today matches what was signed. That check happens when
+  you run <code>conduit connectors install &lt;name&gt;</code>, which verifies the actual bytes
+  against a pinned publisher identity via Sigstore and checks SLSA provenance before installing
+  anything.
+</p>

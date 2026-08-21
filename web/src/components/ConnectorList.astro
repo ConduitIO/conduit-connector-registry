@@ -1,6 +1,7 @@
 ---
 import { EffectiveStatusTag } from './EffectiveStatusTag';
 import { VerifiedBadge } from './VerifiedBadge';
+import SignatureNote, { SIGNATURE_NOTE_ID } from './SignatureNote.astro';
 import { SearchBox } from './SearchBox';
 import type { RenderedConnector } from '../lib/renderModel';
 
@@ -19,6 +20,8 @@ const listId = 'connector-list';
      surface, plus the browser's own find-in-page (step6-web-ui.md §5). -->
 <SearchBox client:load listContainerId={listId} />
 
+<SignatureNote />
+
 <ul id={listId} aria-label="Connectors">
   {
     pageConnectors.map((c) => (
@@ -26,7 +29,10 @@ const listId = 'connector-list';
         <a href={`/connectors/${c.name}/`}>
           <strong>{c.displayName}</strong> <code>{c.name}</code>
         </a>{' '}
-        <VerifiedBadge verified={c.versions.some((v) => v.isDefault && v.verified)} />
+        <VerifiedBadge
+          verified={c.versions.some((v) => v.isDefault && v.verified)}
+          descriptionId={SIGNATURE_NOTE_ID}
+        />
         <EffectiveStatusTag status={c.effectiveStatus} />
         <p title={c.description}>{c.description}</p>
       </li>
