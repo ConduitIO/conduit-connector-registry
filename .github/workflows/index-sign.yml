@@ -50,7 +50,8 @@ name: index-sign
 # roughly four days before the shipped client's 168h refusal
 # (pkg/registry/index/freeze.go DefaultMaxStaleness). The alarm is the trigger;
 # a human dispatches a role=root re-sign when it fires. That is one click, the
-# same click a scheduled run would have required anyway (see KNOWN GAP below),
+# same click a scheduled run would have required anyway (see "WHY A SCHEDULE
+# WOULD NOT HAVE HELPED", below),
 # and it happens only when a re-sign is actually needed.
 #
 # Doing this properly - a low-privilege key that can extend liveness unattended
@@ -114,17 +115,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: registry-signing
     steps:
-      - name: Determine signing role
-        id: role
-        env:
-          DISPATCH_ROLE: ${{ inputs.role }}
-        run: |
-          set -euo pipefail
-          # workflow_dispatch is the only trigger, so the input always exists.
-          # Defaulted defensively anyway: an empty role would sign nothing and
-          # fail confusingly downstream rather than here.
-          echo "role=${DISPATCH_ROLE:-root}" >> "$GITHUB_OUTPUT"
-
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
@@ -138,33 +128,53 @@ jobs:
         if: ${{ inputs.reset-to-empty }}
         run: |
           set -euo pipefail
-          # Fresh empty index: version 1 (no client has ever fetched a served
-          # index — registry.conduitdata.io only goes live with this run), current
-          # timestamp. connectors[] empty; seeds are added via the real register
-          # flow.
+          # This input existed to bootstrap the placeholder index before
+          # registry.conduitdata.io was live. That has since happened — the
+          # served index is past version 1 with real connectors in it — so
+          # ticking this box now is destructive, not a bootstrap: it would wipe
+          # connectors[] and roll the served version backward.
+          #
+          # Nothing downstream would catch it. deploy.yml refuses a freshness
+          # re-sign, but an empty index carrying a valid ROOT signature is
+          # indistinguishable from a legitimate one to every check in the deploy
+          # path (web/src/lib/verifyIndex.ts checks schema version, root-entry
+          # structure and staleness — there is no monotonicity or rollback
+          # guard anywhere). It would deploy, and every client with a persisted
+          # version would break.
+          #
+          # So the guard is here: refuse unless the current index really is an
+          # un-bootstrapped v1. The alarm's issue sends responders to this
+          # dispatch form under time pressure, and this checkbox sits one line
+          # from the role they came to set.
+          CURRENT="$(python3 -c "import json;print(json.load(open('index/index.json'))['payload']['index']['version'])")"
+          if [ "$CURRENT" -gt 1 ]; then
+            echo "::error::reset-to-empty refused: index/index.json is at version $CURRENT, so it has been published and this would roll it back and drop every connector. Bootstrap is a one-time operation and it has already run." >&2
+            exit 1
+          fi
           TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           printf '{"schemaVersion":1,"index":{"version":1,"timestamp":"%s"},"connectors":[]}\n' "$TS" > index/index.json
           echo "reset index/index.json to empty seed (timestamp $TS)"
 
       - name: Assemble + root-sign the index
+        # FRESHNESS_SIGNING_KEY is deliberately NOT in this env block. Root is
+        # the only dispatchable role (see the `role` input), so injecting the
+        # freshness key here would put key material the workflow cannot legally
+        # use into the signing step's environment — and would leave re-enabling
+        # freshness a one-token edit to the `options:` list. Rebuilding the
+        # freshness path means rebuilding it deliberately, and re-reading the
+        # header that explains why it breaks the published index.
         env:
           ROOT_SIGNING_KEY: ${{ secrets.ROOT_SIGNING_KEY }}
-          FRESHNESS_SIGNING_KEY: ${{ secrets.FRESHNESS_SIGNING_KEY }}
-          ROLE: ${{ steps.role.outputs.role }}
+          ROLE: root
           RESET: ${{ inputs.reset-to-empty }}
         run: |
           set -euo pipefail
-          if [ "$ROLE" = "freshness" ]; then
-            KEY="$FRESHNESS_SIGNING_KEY"; KEYENV=FRESHNESS_SIGNING_KEY
-          else
-            KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
-          fi
+          KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
           if [ -z "$KEY" ]; then
             # Fail loudly, never silently: an empty key here (missing secret,
             # environment misconfigured, or the required-reviewers gate
-            # somehow bypassed without provisioning the freshness key in its
-            # own environment) must surface as a red X, not a quiet no-op —
-            # that silence is exactly how the index went 17 days stale with
+            # somehow bypassed) must surface as a red X, not a quiet no-op —
+            # that silence is exactly how the index went 18 days stale with
             # nobody noticing.
             echo "::error::signing key for role=$ROLE is empty in the registry-signing Environment" >&2
             exit 1
@@ -186,29 +196,21 @@ jobs:
       - name: Commit + push the signed index (if changed)
         env:
           GH_TOKEN: ${{ github.token }}
-          ROLE: ${{ steps.role.outputs.role }}
         run: |
           set -euo pipefail
           if git diff --quiet -- index/index.json; then
-            # A freshness heartbeat MUST produce a diff every time it signs
-            # (timestamp + version always move) — an unchanged file here on a
-            # freshness run means the sign step silently no-op'd upstream.
-            # Fail loudly rather than let a no-op heartbeat masquerade as success.
-            if [ "$ROLE" = "freshness" ]; then
-              echo "::error::freshness heartbeat produced no diff in index/index.json — timestamp/version should always change on a heartbeat re-sign" >&2
-              exit 1
-            fi
+            # Not reachable on the remediation path this workflow exists for:
+            # cmd/index-sign/main.go bumps index.version unconditionally and the
+            # assemble path always passes a fresh -timestamp, so a re-sign always
+            # moves the file. Kept as an honest no-op for the reset-to-empty case,
+            # where signing an already-identical seed legitimately changes nothing.
             echo "index/index.json unchanged after signing — nothing to commit (deterministic ed25519 over an unchanged payload)."
             exit 0
           fi
           git config user.name "conduit-registry-signer[bot]"
           git config user.email "registry-signer@conduitdata.io"
           git add index/index.json
-          if [ "$ROLE" = "freshness" ]; then
-            git commit -m "chore(index): freshness-sign index/index.json"
-          else
-            git commit -m "chore(index): root-sign index/index.json"
-          fi
+          git commit -m "chore(index): root-sign index/index.json"
           git push origin HEAD:main
           # GitHub does NOT trigger workflows for pushes made with GITHUB_TOKEN
           # (loop prevention), so deploy.yml won't fire on this commit — dispatch
@@ -218,13 +220,12 @@ jobs:
 
       - name: Job summary
         env:
-          ROLE: ${{ steps.role.outputs.role }}
           RESET: ${{ inputs.reset-to-empty }}
         run: |
           {
             echo "## index signed"
             echo ""
-            echo "- role: \`${ROLE}\`"
+            echo "- role: \`root\`"
             echo "- reset-to-empty: \`${RESET}\`"
             echo "- connectors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload']['connectors']))")\`"
             echo "- processors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload'].get('processors',[])))")\`"

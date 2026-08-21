@@ -1,16 +1,24 @@
 name: index-staleness-alarm
 
 # Independent, secret-free detector for exactly the class of outage that
-# caused `conduit connectors install` to fail for every user for 17 days
+# caused `conduit connectors install` to fail for every user for 18 days
 # (index/index.json's payload.index.timestamp aged past the shipped client's
 # 7-day DefaultMaxStaleness — pkg/registry/index/freeze.go in ConduitIO/conduit
 # — with nobody noticing until a user hit it).
 #
 # This job does NOT sign anything and needs no secret: it fetches the
-# PUBLISHED index over plain HTTPS, the same way any `conduit` install would,
-# and checks its age against a threshold BELOW the client's 7-day window —
-# so a maintainer finds out days before any user does, regardless of whether
-# anyone has re-signed recently.
+# PUBLISHED index over plain HTTPS, from the same URL a `conduit` install
+# would, and checks its age against a threshold BELOW the client's 7-day
+# window — so a maintainer finds out days before any user does, regardless of
+# whether anyone has re-signed recently.
+#
+# It is NOT a full client-equivalent verification. It carries no key material,
+# so it cannot check the root signature cryptographically. It does assert that
+# a root-role signature entry is structurally present (see below) — because a
+# freshly-timestamped index carrying only a freshness signature is the specific
+# way this repo has already broken the published artifact once, and reading it
+# as healthy would be worse than silence: the close step would shut the
+# incident issue a human had opened.
 #
 # THIS ALARM IS THE TRIGGER, not a backstop for an automatic one. There is no
 # scheduled re-sign: index-sign.yml is workflow_dispatch-only (see its header
@@ -21,6 +29,20 @@ name: index-staleness-alarm
 # maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
 # refusal, leaving ~4 days between this alarm firing and users seeing
 # registry.index_stale.
+#
+# BE CLEAR ABOUT WHAT THIS IS: because nothing re-signs automatically, the
+# timestamp only moves when a human dispatches. So this alarm fires on a fixed
+# ~3-day cadence forever — roughly 120 issues and 120 gated approvals a year —
+# not on an anomaly. It is a recurring re-sign chore reminder that happens to
+# also catch genuine breakage. That distinction matters: alarm fatigue is the
+# mechanism by which the original outage went unnoticed for 18 days, and a
+# detector that cries wolf every third day is vulnerable to exactly that.
+#
+# The threshold was NOT raised to cut the cadence. 120h would fire every 5 days
+# instead of every 3, but leaves only 48h of margin — and for a single
+# maintainer who might be travelling, margin is worth more than quiet. The real
+# fix is v0.21's detached liveness document, which removes the human from the
+# loop entirely and makes this alarm anomaly-only.
 #
 # OPERATIONAL RISK, stated so it is not rediscovered the hard way: with no
 # automatic re-sign, those ~4 days are the entire margin, a filed GitHub issue
@@ -40,7 +62,9 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  # No actions/checkout in this job — it only fetches a public URL and files an
+  # issue, so it needs no repository contents at all.
+  contents: none
   issues: write
 
 env:
@@ -57,6 +81,12 @@ jobs:
           set -euo pipefail
           # --fail: a non-2xx response (e.g. the CDN itself is down) is a
           # visible failure, not an empty 200-with-error-page body.
+          #
+          # ~15s of retry tolerance, so a single CDN blip at 12:30 UTC files an
+          # "endpoint is unreachable" issue. Accepted rather than adding a
+          # consecutive-failure requirement: a false positive here self-heals
+          # (the next day's run closes the issue), whereas requiring two
+          # failures would double the time to detect a real outage.
           if ! curl --fail --silent --show-error --retry 3 --retry-delay 5 \
               -o /tmp/index.json "$INDEX_URL"; then
             echo "::error::could not fetch $INDEX_URL — the registry endpoint itself may be down"
@@ -67,7 +97,7 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          python3 - "$MAX_AGE_HOURS" <<'PYEOF'
+          python3 - "${MAX_AGE_HOURS:-72}" <<'PYEOF'
           import json
           import os
           import sys
@@ -99,10 +129,35 @@ jobs:
               # It must never be used to authorize any install/content decision;
               # that trust boundary belongs solely to pkg/registry/index.Verify.
               ts_raw = doc["payload"]["index"]["timestamp"]
+              # Format is deliberately strict and matches the producer exactly
+              # (index-sign.yml signs with `date -u +%Y-%m-%dT%H:%M:%SZ`).
+              # Fractional seconds or a +00:00 offset are rejected as malformed
+              # rather than parsed leniently — if the signer's format ever
+              # changes, this should fail loudly on day one, not drift.
               ts = datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+              # A fresh timestamp over a document that no client would accept is
+              # not health. The published index MUST carry a root-role
+              # signature: a freshness-only re-sign replaces it, and both a
+              # first-time client and the site build then refuse the document
+              # (ERR_INDEX_INTEGRITY). That exact mistake has already been made
+              # against this artifact once. Structural check only — no crypto,
+              # no key material in this job — but it distinguishes "signed by
+              # the wrong role" from "signed correctly", which is the failure
+              # this repo actually produces.
+              sigs = doc.get("signatures") or []
+              has_root = any(
+                  isinstance(sig, dict) and sig.get("role") == "root" and sig.get("signature")
+                  for sig in sigs
+              )
+              if not has_root:
+                  roles = [sig.get("role") for sig in sigs if isinstance(sig, dict)]
+                  raise ValueError(
+                      f"served index carries no root-role signature (roles present: {roles or 'none'})"
+                  )
           except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
               print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
-              emit(malformed="true", age_hours="unknown", timestamp="unknown", stale="true")
+              emit(malformed="true", age_hours="unknown", timestamp="unknown")
               sys.exit(1)
 
           now = datetime.now(timezone.utc)
@@ -112,15 +167,18 @@ jobs:
           # freshness. Report it rather than silently treating it as healthy.
           if age_hours < 0:
               print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
-              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, stale="true")
+              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw)
               sys.exit(1)
 
           print(f"index.timestamp = {ts_raw}")
           print(f"age = {age_hours:.1f}h (alarm threshold = {max_age_hours:.0f}h, "
                 f"client refuses at 168h)")
 
-          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw,
-               stale="true" if age_hours > max_age_hours else "false")
+          # No `stale` output: nothing reads it, and on the malformed paths above
+          # there is no honest value for it — a document whose timestamp cannot
+          # be read is not "stale", it is unreadable. The step's exit status and
+          # `malformed` carry everything the issue step branches on.
+          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw)
 
           if age_hours > max_age_hours:
               sys.exit(1)
@@ -139,15 +197,40 @@ jobs:
         with:
           script: |
             const fetchFailed = process.env.FETCH_OUTCOME !== 'success';
+            // The Python emits malformed=true|false on every path it controls.
+            // Neither value means it never got that far — the step died AROUND
+            // the script (an unbound variable under `set -u`, python3 missing,
+            // the runner OOMing). Without this distinction that case falls into
+            // the ordinary-staleness branch below and reports "(unknown) is
+            // unknownh old", sending the responder to re-sign when the check
+            // never actually ran. It fails closed either way; this is about the
+            // issue telling the truth.
+            const reported = process.env.MALFORMED === 'true' || process.env.MALFORMED === 'false';
             const malformed = process.env.MALFORMED === 'true';
+            const noReport = !fetchFailed && !reported;
+
             const title = fetchFailed
               ? 'registry index endpoint is unreachable'
-              : malformed
-                ? 'registry index is unreadable — cannot determine freshness'
-                : 'registry index is going stale — install will start failing';
+              : noReport
+                ? 'registry freshness check failed to run — freshness is UNKNOWN'
+                : malformed
+                  ? 'registry index is unreadable — cannot determine freshness'
+                  : 'registry index is going stale — install will start failing';
 
             let body;
-            if (malformed && !fetchFailed) {
+            if (noReport) {
+              body = [
+                'The freshness check step failed before it could report anything, so this run',
+                'says NOTHING about whether the published index is fresh, stale, or broken.',
+                'Do not assume either way.',
+                '',
+                'This is a fault in the alarm itself, not (necessarily) in the index. Read the run',
+                'log for the step error, fix the workflow, and re-run it before deciding whether a',
+                're-sign is needed.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else if (malformed && !fetchFailed) {
               body = [
                 `Fetched ${process.env.INDEX_URL} successfully, but could not read`,
                 '`payload.index.timestamp` from it — the document is malformed, its schema changed,',
@@ -160,6 +243,9 @@ jobs:
                 'Check the run log for the exact parse error, then compare the served bytes against',
                 '`index/index.json` on `main`.',
                 '',
+                ...(process.env.INDEX_TS && process.env.INDEX_TS !== 'unknown'
+                  ? [`Served timestamp: ${process.env.INDEX_TS} (age ${process.env.AGE_HOURS}h — a negative age means it is future-dated).`, '']
+                  : []),
                 `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               ].join('\n');
             } else if (fetchFailed) {
@@ -202,17 +288,35 @@ jobs:
               ].join('\n');
             }
 
-            const existing = await github.rest.issues.listForRepo({
+            // listForRepo returns PULL REQUESTS as well as issues. Without the
+            // filter, a PR that happens to carry this label absorbs the alarm:
+            // the incident body is posted as a PR comment and no issue is ever
+            // filed. Filter to bot-authored issues only — a human tracking an
+            // index incident under the same label is theirs to manage, not
+            // ours to comment on or (see the close step) close.
+            const isOurs = (i) => !i.pull_request && i.user?.login === 'github-actions[bot]';
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'index-staleness',
+              per_page: 100,
             });
-            if (existing.data.length > 0) {
+            const ours = existing.filter(isOurs);
+            if (ours.length > 0) {
+              // The outcome class can change between runs (stale -> malformed,
+              // say). Update the title too, or the issue keeps a heading that
+              // contradicts its own newest comment.
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ours[0].number,
+                title,
+              });
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: existing.data[0].number,
+                issue_number: ours[0].number,
                 body: `Still failing as of this run.\n\n${body}`,
               });
             } else {
@@ -230,13 +334,19 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const existing = await github.rest.issues.listForRepo({
+            // Same filter as the filing step, and for a sharper reason: without
+            // it this loop CLOSES pull requests carrying the label, and closes
+            // index-incident issues a human opened, the moment the timestamp
+            // happens to read fresh. Only close what this workflow filed.
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'index-staleness',
+              per_page: 100,
             });
-            for (const issue of existing.data) {
+            const ours = existing.filter((i) => !i.pull_request && i.user?.login === 'github-actions[bot]');
+            for (const issue of ours) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
