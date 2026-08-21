@@ -17,8 +17,10 @@ name: index-staleness-alarm
 # a root-role signature entry is structurally present (see below) — because a
 # freshly-timestamped index carrying only a freshness signature is the specific
 # way this repo has already broken the published artifact once, and reading it
-# as healthy would be worse than silence: the close step would shut the
-# incident issue a human had opened.
+# as healthy would be worse than silence: the close step would shut THIS
+# ALARM'S OWN open incident issue and report the outage resolved. (It cannot
+# close a human's issue — see the author filter on the close step — but its own
+# is the one that matters here.)
 #
 # THIS ALARM IS THE TRIGGER, not a backstop for an automatic one. There is no
 # scheduled re-sign: index-sign.yml is workflow_dispatch-only (see its header
@@ -27,8 +29,10 @@ name: index-staleness-alarm
 # job exists to tell them when to.
 #
 # maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
-# refusal, leaving ~4 days between this alarm firing and users seeing
-# registry.index_stale.
+# refusal. Note the margin is a RANGE, not a number: this job samples once a
+# day, so crossing 72h is detected somewhere between 72h and 96h, leaving
+# 3-4 days before users see registry.index_stale. The worst case is the one
+# that matters, because the threshold below is justified on it.
 #
 # BE CLEAR ABOUT WHAT THIS IS: because nothing re-signs automatically, the
 # timestamp only moves when a human dispatches. So this alarm fires on a fixed
@@ -39,17 +43,25 @@ name: index-staleness-alarm
 # detector that cries wolf every third day is vulnerable to exactly that.
 #
 # The threshold was NOT raised to cut the cadence. 120h would fire every 5 days
-# instead of every 3, but leaves only 48h of margin — and for a single
-# maintainer who might be travelling, margin is worth more than quiet. The real
+# instead of every 3, but leaves only 24-48h of margin (same sampling caveat)
+# — and for a single maintainer who might be travelling, margin is worth more
+# than quiet. The real
 # fix is v0.21's detached liveness document, which removes the human from the
 # loop entirely and makes this alarm anomaly-only.
 #
 # OPERATIONAL RISK, stated so it is not rediscovered the hard way: with no
-# automatic re-sign, those ~4 days are the entire margin, a filed GitHub issue
+# automatic re-sign, those 3-4 days are the entire margin, a filed GitHub issue
 # is the only notification channel, and this project has one maintainer. A
 # holiday, illness, or a stretch of not reading notifications spends the margin
 # silently. The v0.21 detached-liveness-document design is what removes the
 # human from this path; until then this window is accepted, not solved.
+#
+# One more way this goes quiet, named because it is the only failure that is
+# silent in BOTH directions: GitHub auto-disables scheduled workflows in a
+# public repo after 60 days of repository inactivity. In steady state the
+# ~3-day re-sign commits keep resetting that clock, so it cannot bite before
+# the client's 7-day window — but if the re-sign loop is already broken, the
+# detector stops too, and nothing announces it.
 #
 # 12:30 UTC: after deploy.yml's daily Scarf-stats cron (06:17 UTC) has run and
 # the CDN in front of registry.conduitdata.io has settled — checking too soon
@@ -71,9 +83,20 @@ env:
   INDEX_URL: https://registry.conduitdata.io/index.json
   MAX_AGE_HOURS: '72'
 
+# A dispatch landing during the 12:30 run would otherwise give two runs that
+# both see zero open bot issues and both file one. The filing step only ever
+# touches ours[0] thereafter, so the duplicate would linger until a green run
+# closed both.
+concurrency:
+  group: index-staleness-alarm
+  cancel-in-progress: false
+
 jobs:
   check-staleness:
     runs-on: ubuntu-latest
+    # Backstop for anything that hangs outside curl's own timeouts. Well above
+    # a normal run (seconds) and far below GitHub's 6h default.
+    timeout-minutes: 10
     steps:
       - name: Fetch the published index
         id: fetch
@@ -87,7 +110,14 @@ jobs:
           # consecutive-failure requirement: a false positive here self-heals
           # (the next day's run closes the issue), whereas requiring two
           # failures would double the time to detect a real outage.
+          # --connect-timeout/--max-time are load-bearing, not hygiene: a CDN
+          # that accepts the connection and never responds would otherwise stall
+          # this step until GitHub kills the job at its default 6h limit — and a
+          # killed job runs NEITHER the `if: failure()` filing step nor the
+          # `if: success()` close step. No issue, no comment, just a red run in
+          # an Actions tab whose unwatched-ness is this workflow's own premise.
           if ! curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+              --connect-timeout 15 --max-time 60 \
               -o /tmp/index.json "$INDEX_URL"; then
             echo "::error::could not fetch $INDEX_URL — the registry endpoint itself may be down"
             exit 1
@@ -145,15 +175,29 @@ jobs:
               # no key material in this job — but it distinguishes "signed by
               # the wrong role" from "signed correctly", which is the failure
               # this repo actually produces.
+              # These four conditions mirror isStructurallyValidSignature in
+              # web/src/lib/verifyIndex.ts exactly. Checking fewer would let
+              # documents through that the site build rejects with
+              # ERR_INDEX_INTEGRITY — and a rejected deploy means the CDN keeps
+              # serving the OLD document while this job exits 0, files nothing,
+              # and its close step shuts the open incident issue. Keep these in
+              # step with verifyIndex.ts; a divergence here is silent.
+              valid_algorithms = {"ed25519", "ecdsa-p256-sha256"}
               sigs = doc.get("signatures") or []
               has_root = any(
-                  isinstance(sig, dict) and sig.get("role") == "root" and sig.get("signature")
+                  isinstance(sig, dict)
+                  and sig.get("role") == "root"
+                  and isinstance(sig.get("keyId"), str) and sig["keyId"]
+                  and sig.get("algorithm") in valid_algorithms
+                  and isinstance(sig.get("signature"), str) and sig["signature"]
                   for sig in sigs
               )
               if not has_root:
                   roles = [sig.get("role") for sig in sigs if isinstance(sig, dict)]
                   raise ValueError(
-                      f"served index carries no root-role signature (roles present: {roles or 'none'})"
+                      "served index carries no structurally valid root-role signature "
+                      f"(roles present: {roles or 'none'}); the site build would refuse this "
+                      "document with ERR_INDEX_INTEGRITY"
                   )
           except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
               print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
@@ -163,9 +207,15 @@ jobs:
           now = datetime.now(timezone.utc)
           age_hours = (now - ts).total_seconds() / 3600.0
 
-          # A timestamp in the future is a clock-skew or a bad sign, not
+          # A timestamp in the future is clock skew or a bad sign, not
           # freshness. Report it rather than silently treating it as healthy.
-          if age_hours < 0:
+          #
+          # Small tolerance so one second of drift between the signer's clock
+          # and this runner's does not file an "index is unreadable" incident.
+          # 60s is far below any interval that could hide a real problem: the
+          # threshold this guards is 72 HOURS.
+          clock_skew_tolerance_hours = 1.0 / 60.0
+          if age_hours < -clock_skew_tolerance_hours:
               print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
               emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw)
               sys.exit(1)
@@ -261,19 +311,26 @@ jobs:
               const indexTs = process.env.INDEX_TS || 'unknown';
               const maxAgeHours = process.env.MAX_AGE_HOURS;
               body = [
-                `\`index/index.json\`'s `+"`payload.index.timestamp`"+` (${indexTs}) is ${ageHours}h old,`,
-                `past this alarm's ${maxAgeHours}h threshold.`,
+                `The **served** index at ${process.env.INDEX_URL} has ` +"`payload.index.timestamp`"+` = ${indexTs},`,
+                `which is ${ageHours}h old — past this alarm's ${maxAgeHours}h threshold.`,
                 '',
                 'The shipped `conduit` client refuses the index outright at 168h (7 days) — ' +
                 '`registry.index_stale` — and every `conduit connectors install` starts failing.',
                 '',
-                'Cause: there is no automatic re-sign. `index-sign.yml` is ' +
-                '`workflow_dispatch`-only by design, so the published index only gets a fresh ' +
-                'timestamp when a human dispatches one. Nobody has in over ' +
-                `${maxAgeHours}h.`,
+                '**First, work out which of the two failures this is.** This job reads the ' +
+                'PUBLISHED document, not the repo, and those can diverge — the 2026-08-21 ' +
+                'incident is exactly the case where they did (repo at v9, CDN still serving v8).',
                 '',
-                'Fix: dispatch `index-sign.yml` with **`role: root`** and approve it at the ' +
+                'Compare the served `payload.index.version` above against `index/index.json` on ' +
+                '`main`:',
+                '',
+                '- **Repo and served agree** → nobody has re-signed. This is the ordinary case ' +
+                '(there is no automatic re-sign; `index-sign.yml` is `workflow_dispatch`-only by ' +
+                'design). Dispatch `index-sign.yml` with **`role: root`** and approve it at the ' +
                 '`registry-signing` Environment gate.',
+                '- **Repo is AHEAD of served** → signing already happened and the DEPLOY is ' +
+                'broken. Re-signing does nothing, burns a gated approval, and this alarm fires ' +
+                'again tomorrow. Look at `deploy.yml`\'s recent runs instead.',
                 '',
                 'Use `role: root` even though nothing about the content changed. Do NOT use ' +
                 '`role: freshness` against the published index: both roles sign the same ' +
