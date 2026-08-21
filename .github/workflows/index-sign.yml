@@ -9,20 +9,55 @@ name: index-sign
 # maintainer). A manual dispatch's signed-index commit can never re-trigger
 # this workflow — no loop (pushes made with GITHUB_TOKEN don't fire Actions).
 #
-# Freshness heartbeat: `schedule:` (below) runs this workflow daily so
-# `index.timestamp` never falls outside the shipped client's 7-day
-# maxStaleness window (pkg/registry/index/freeze.go DefaultMaxStaleness) even
-# in a quiet period with zero new registrations. A scheduled run always signs
-# role=freshness (see "Determine signing role" below) — it re-assembles
-# connectors[]/processors[] from the SAME index/connectors, index/processors
-# source files as the last root sign, so the content subtree is byte-identical
-# and only index.timestamp/index.version move, per R-1 §a.2.c /
-# 20260714-connector-registry-index-schema.md OQ3: "a freshness signature may
-# extend freshness, never authorize content."
+# WHY THERE IS NO SCHEDULED HEARTBEAT HERE, AND WHY `freshness` CANNOT SIGN
+# THE PUBLISHED INDEX.
 #
-# 05:00 UTC: ahead of deploy.yml's own daily cron (17 6 * * *, Scarf-stats
-# refresh) so a freshly-signed index is already committed by the time that run
-# serves it, and clear of token-drift.yml's weekly Monday 08:00 UTC slot.
+# An earlier revision of this file added a daily `schedule:` that signed
+# role=freshness. It was removed after being run for real on 2026-08-21 to
+# clear a live outage. What happened:
+#
+#   sign job:   success  -> committed index version 9, signatures: ['freshness']
+#   deploy job: FAILURE  -> [registry-web] BUILD FAILED [ERR_INDEX_INTEGRITY]:
+#                           index has no structurally valid `root`-role
+#                           signature entry - refusing to render from it
+#
+# The repo got a fresh index; the CDN kept serving the 18-day-old one. A
+# nightly heartbeat built this way would have gone GREEN on this job and RED on
+# deploy every night, leaving the published index frozen - the exact failure it
+# existed to prevent, with a passing checkmark beside it.
+#
+# The cause is not a bug in either job. Both signature roles sign the SAME
+# canonicalized payload, so refreshing index.timestamp invalidates the previous
+# root signature: a freshness re-sign REPLACES the root signature rather than
+# adding to it. And an index carrying only a freshness signature is rejected by
+# both consumers, for independent reasons:
+#
+#   * A first-time client cannot verify it. pkg/registry/index/verify.go
+#     accepts a freshness signature only when the client's persisted
+#     lastVerifiedContentHash matches the payload's content subtree. A fresh
+#     install has no such hash, and verify.go's own doc says it outright:
+#     "a freshness-only index can never be the FIRST index a client ever
+#     accepts, by construction".
+#   * The site build refuses it - web/src/lib/verifyIndex.ts requires a
+#     structurally valid root-role entry before it will render anything.
+#
+# So the PUBLISHED index must always carry a root signature. Freshness is
+# usable only for a consumer that has already root-verified this content, which
+# the published artifact's audience is not.
+#
+# The liveness problem is therefore solved by index-staleness-alarm.yml, which
+# fetches the published index like a real client and fails loudly at 72h -
+# roughly four days before the shipped client's 168h refusal
+# (pkg/registry/index/freeze.go DefaultMaxStaleness). The alarm is the trigger;
+# a human dispatches a role=root re-sign when it fires. That is one click, the
+# same click a scheduled run would have required anyway (see KNOWN GAP below),
+# and it happens only when a re-sign is actually needed.
+#
+# Doing this properly - a low-privilege key that can extend liveness unattended
+# - needs a detached, freshness-signed liveness document separate from the
+# index, plus client support for it. That is filed for v0.21. Do not reach for
+# role=freshness on the published index again without reading that design; this
+# comment exists because the reason is not visible from the code.
 #
 # KNOWN GAP (not fixed by this workflow file alone — needs a human with
 # environment-admin access): FRESHNESS_SIGNING_KEY is an Environment secret
@@ -53,11 +88,6 @@ on:
         description: 'BOOTSTRAP: overwrite the payload with an empty connectors[] seed before signing (use once, to replace the placeholder index)'
         type: boolean
         default: false
-  schedule:
-    # Daily freshness heartbeat — see comment block above for why 05:00 UTC
-    # and why this always signs role=freshness regardless of the
-    # workflow_dispatch `role` input's default.
-    - cron: '0 5 * * *'
 
 permissions:
   contents: write
@@ -80,18 +110,12 @@ jobs:
         id: role
         env:
           DISPATCH_ROLE: ${{ inputs.role }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          # workflow_dispatch: honor the chosen input (default "root").
-          # schedule: the `inputs` context doesn't exist for this event type
-          # (DISPATCH_ROLE resolves empty), so always sign freshness — a
-          # heartbeat run must never carry the root key's authority.
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            echo "role=freshness" >> "$GITHUB_OUTPUT"
-          else
-            echo "role=${DISPATCH_ROLE:-root}" >> "$GITHUB_OUTPUT"
-          fi
+          # workflow_dispatch is the only trigger, so the input always exists.
+          # Defaulted defensively anyway: an empty role would sign nothing and
+          # fail confusingly downstream rather than here.
+          echo "role=${DISPATCH_ROLE:-root}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
 
