@@ -4,14 +4,42 @@ name: index-sign
 # envelope back to main. This is what makes the index verifiable by the shipped
 # client (index.Verify) and the publish Action's register step.
 #
-# workflow_dispatch ONLY: every use of the root key is a deliberate, gated
-# action (environment: registry-signing, required reviewer = maintainer). Being
-# dispatch-only also means the signed-index commit this pushes can never
-# re-trigger the workflow — no loop.
+# Root-key uses stay workflow_dispatch ONLY: every use of the root key is a
+# deliberate, gated action (environment: registry-signing, required reviewer =
+# maintainer). A manual dispatch's signed-index commit can never re-trigger
+# this workflow — no loop (pushes made with GITHUB_TOKEN don't fire Actions).
+#
+# Freshness heartbeat: `schedule:` (below) runs this workflow daily so
+# `index.timestamp` never falls outside the shipped client's 7-day
+# maxStaleness window (pkg/registry/index/freeze.go DefaultMaxStaleness) even
+# in a quiet period with zero new registrations. A scheduled run always signs
+# role=freshness (see "Determine signing role" below) — it re-assembles
+# connectors[]/processors[] from the SAME index/connectors, index/processors
+# source files as the last root sign, so the content subtree is byte-identical
+# and only index.timestamp/index.version move, per R-1 §a.2.c /
+# 20260714-connector-registry-index-schema.md OQ3: "a freshness signature may
+# extend freshness, never authorize content."
+#
+# 05:00 UTC: ahead of deploy.yml's own daily cron (17 6 * * *, Scarf-stats
+# refresh) so a freshly-signed index is already committed by the time that run
+# serves it, and clear of token-drift.yml's weekly Monday 08:00 UTC slot.
+#
+# KNOWN GAP (not fixed by this workflow file alone — needs a human with
+# environment-admin access): FRESHNESS_SIGNING_KEY is an Environment secret
+# scoped to `registry-signing`, which carries a required-reviewers protection
+# rule (see root-keygen.yml). GitHub's environment protection applies to
+# every job that references the environment, regardless of trigger or role —
+# so today, a scheduled run of this job still pauses in "Waiting" for manual
+# approval, same as a root-role dispatch. That makes this heartbeat "visible
+# and one-click" rather than truly unattended. Closing that gap requires
+# provisioning a separate, unprotected Environment that holds only
+# FRESHNESS_SIGNING_KEY (or an equivalent copy of it) — an environment/secret-
+# custody change intentionally left out of this PR. See PR description.
 #
 # Role semantics: a first-time client can only verify a ROOT signature, so
 # content changes (the bootstrap empty seed, and every post-register re-sign)
-# use role=root. Freshness (liveness-only) is a fast-follow.
+# use role=root, chosen via manual dispatch. Freshness (liveness-only) now
+# also runs unattended-in-principle via the schedule above.
 
 on:
   workflow_dispatch:
@@ -25,16 +53,46 @@ on:
         description: 'BOOTSTRAP: overwrite the payload with an empty connectors[] seed before signing (use once, to replace the placeholder index)'
         type: boolean
         default: false
+  schedule:
+    # Daily freshness heartbeat — see comment block above for why 05:00 UTC
+    # and why this always signs role=freshness regardless of the
+    # workflow_dispatch `role` input's default.
+    - cron: '0 5 * * *'
 
 permissions:
   contents: write
   actions: write   # dispatch deploy.yml after committing the re-signed index
+
+concurrency:
+  # Never let a scheduled heartbeat race a manual root-role dispatch (or two
+  # heartbeats overlap after a slow run) into two concurrent pushes to main.
+  # Queue rather than cancel: a queued root re-sign must never be dropped in
+  # favor of a freshness one.
+  group: index-sign
+  cancel-in-progress: false
 
 jobs:
   sign:
     runs-on: ubuntu-latest
     environment: registry-signing
     steps:
+      - name: Determine signing role
+        id: role
+        env:
+          DISPATCH_ROLE: ${{ inputs.role }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # workflow_dispatch: honor the chosen input (default "root").
+          # schedule: the `inputs` context doesn't exist for this event type
+          # (DISPATCH_ROLE resolves empty), so always sign freshness — a
+          # heartbeat run must never carry the root key's authority.
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            echo "role=freshness" >> "$GITHUB_OUTPUT"
+          else
+            echo "role=${DISPATCH_ROLE:-root}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
@@ -60,7 +118,7 @@ jobs:
         env:
           ROOT_SIGNING_KEY: ${{ secrets.ROOT_SIGNING_KEY }}
           FRESHNESS_SIGNING_KEY: ${{ secrets.FRESHNESS_SIGNING_KEY }}
-          ROLE: ${{ inputs.role }}
+          ROLE: ${{ steps.role.outputs.role }}
           RESET: ${{ inputs.reset-to-empty }}
         run: |
           set -euo pipefail
@@ -70,6 +128,12 @@ jobs:
             KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
           fi
           if [ -z "$KEY" ]; then
+            # Fail loudly, never silently: an empty key here (missing secret,
+            # environment misconfigured, or the required-reviewers gate
+            # somehow bypassed without provisioning the freshness key in its
+            # own environment) must surface as a red X, not a quiet no-op —
+            # that silence is exactly how the index went 17 days stale with
+            # nobody noticing.
             echo "::error::signing key for role=$ROLE is empty in the registry-signing Environment" >&2
             exit 1
           fi
@@ -90,16 +154,29 @@ jobs:
       - name: Commit + push the signed index (if changed)
         env:
           GH_TOKEN: ${{ github.token }}
+          ROLE: ${{ steps.role.outputs.role }}
         run: |
           set -euo pipefail
           if git diff --quiet -- index/index.json; then
+            # A freshness heartbeat MUST produce a diff every time it signs
+            # (timestamp + version always move) — an unchanged file here on a
+            # freshness run means the sign step silently no-op'd upstream.
+            # Fail loudly rather than let a no-op heartbeat masquerade as success.
+            if [ "$ROLE" = "freshness" ]; then
+              echo "::error::freshness heartbeat produced no diff in index/index.json — timestamp/version should always change on a heartbeat re-sign" >&2
+              exit 1
+            fi
             echo "index/index.json unchanged after signing — nothing to commit (deterministic ed25519 over an unchanged payload)."
             exit 0
           fi
           git config user.name "conduit-registry-signer[bot]"
           git config user.email "registry-signer@conduitdata.io"
           git add index/index.json
-          git commit -m "chore(index): root-sign index/index.json"
+          if [ "$ROLE" = "freshness" ]; then
+            git commit -m "chore(index): freshness-sign index/index.json (heartbeat)"
+          else
+            git commit -m "chore(index): root-sign index/index.json"
+          fi
           git push origin HEAD:main
           # GitHub does NOT trigger workflows for pushes made with GITHUB_TOKEN
           # (loop prevention), so deploy.yml won't fire on this commit — dispatch
@@ -109,7 +186,7 @@ jobs:
 
       - name: Job summary
         env:
-          ROLE: ${{ inputs.role }}
+          ROLE: ${{ steps.role.outputs.role }}
           RESET: ${{ inputs.reset-to-empty }}
         run: |
           {

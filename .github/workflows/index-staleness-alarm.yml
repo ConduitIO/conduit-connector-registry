@@ -1,0 +1,192 @@
+name: index-staleness-alarm
+
+# Independent, secret-free detector for exactly the class of outage that
+# caused `conduit connectors install` to fail for every user for 17 days
+# (index/index.json's payload.index.timestamp aged past the shipped client's
+# 7-day DefaultMaxStaleness — pkg/registry/index/freeze.go in ConduitIO/conduit
+# — with nobody noticing until a user hit it).
+#
+# This job does NOT sign anything and needs no secret: it fetches the
+# PUBLISHED index over plain HTTPS, the same way any `conduit` install would,
+# and checks its age against a threshold BELOW the client's 7-day window —
+# so a maintainer finds out days before any user does, regardless of whether
+# index-sign.yml's daily freshness heartbeat (schedule trigger) actually ran
+# unattended or is stuck waiting on the registry-signing Environment's
+# required-reviewers approval (see index-sign.yml's header comment for that
+# known gap).
+#
+# maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
+# limit, leaving ~4 days of margin between this alarm firing and the outage
+# index-sign.yml's freshness heartbeat is supposed to prevent from ever
+# actually reaching users.
+#
+# 12:30 UTC: after both index-sign.yml's daily heartbeat (05:00 UTC) and
+# deploy.yml's daily Scarf-stats cron (06:17 UTC) have had time to run and
+# for the CDN in front of registry.conduitdata.io to settle — checking too
+# soon after a legitimate re-sign risks a false alarm from propagation lag,
+# not a real staleness problem.
+
+on:
+  schedule:
+    - cron: '30 12 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  INDEX_URL: https://registry.conduitdata.io/index.json
+  MAX_AGE_HOURS: '72'
+
+jobs:
+  check-staleness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the published index
+        id: fetch
+        run: |
+          set -euo pipefail
+          # --fail: a non-2xx response (e.g. the CDN itself is down) is a
+          # visible failure, not an empty 200-with-error-page body.
+          if ! curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+              -o /tmp/index.json "$INDEX_URL"; then
+            echo "::error::could not fetch $INDEX_URL — the registry endpoint itself may be down"
+            exit 1
+          fi
+
+      - name: Check payload.index.timestamp age
+        id: check
+        run: |
+          set -euo pipefail
+          python3 - "$MAX_AGE_HOURS" <<'PYEOF'
+          import json
+          import os
+          import sys
+          from datetime import datetime, timezone
+
+          max_age_hours = float(sys.argv[1])
+
+          with open("/tmp/index.json") as f:
+              doc = json.load(f)
+
+          # This is an unverified read (no signature check — this job carries
+          # no key material) purely to read a timestamp for a liveness alarm.
+          # It must never be used to authorize any install/content decision;
+          # that trust boundary belongs solely to pkg/registry/index.Verify.
+          ts_raw = doc["payload"]["index"]["timestamp"]
+          ts = datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+          now = datetime.now(timezone.utc)
+          age_hours = (now - ts).total_seconds() / 3600.0
+
+          print(f"index.timestamp = {ts_raw}")
+          print(f"age = {age_hours:.1f}h (alarm threshold = {max_age_hours:.0f}h, "
+                f"client refuses at 168h)")
+
+          # GITHUB_OUTPUT is read from the environment, not shell-interpolated
+          # into this heredoc, so the path can't be tampered with by anything
+          # this script itself prints or computes.
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"age_hours={age_hours:.1f}\n")
+              out.write(f"timestamp={ts_raw}\n")
+
+          if age_hours > max_age_hours:
+              sys.exit(1)
+          PYEOF
+
+      - name: Open/update an issue on staleness or fetch failure
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          AGE_HOURS: ${{ steps.check.outputs.age_hours }}
+          INDEX_TS: ${{ steps.check.outputs.timestamp }}
+          MAX_AGE_HOURS: ${{ env.MAX_AGE_HOURS }}
+          INDEX_URL: ${{ env.INDEX_URL }}
+          FETCH_OUTCOME: ${{ steps.fetch.outcome }}
+        with:
+          script: |
+            const fetchFailed = process.env.FETCH_OUTCOME !== 'success';
+            const title = fetchFailed
+              ? 'registry index endpoint is unreachable'
+              : 'registry index is going stale — install will start failing';
+
+            let body;
+            if (fetchFailed) {
+              body = [
+                `Could not fetch ${process.env.INDEX_URL} — the registry endpoint itself may be down`,
+                'or unreachable, which is at least as urgent as a stale-but-served index: every',
+                '`conduit connectors install` is failing right now.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else {
+              const ageHours = process.env.AGE_HOURS || 'unknown';
+              const indexTs = process.env.INDEX_TS || 'unknown';
+              const maxAgeHours = process.env.MAX_AGE_HOURS;
+              body = [
+                `\`index/index.json\`'s `+"`payload.index.timestamp`"+` (${indexTs}) is ${ageHours}h old,`,
+                `past this alarm's ${maxAgeHours}h threshold.`,
+                '',
+                'The shipped `conduit` client refuses the index outright at 168h (7 days) — ' +
+                '`registry.index_stale` — and every `conduit connectors install` starts failing.',
+                '',
+                'Likely cause: `index-sign.yml`\'s daily freshness heartbeat (`schedule:`, 05:00 UTC) ' +
+                'did not complete — most likely it is sitting in "Waiting" for required-reviewer ' +
+                'approval on the `registry-signing` Environment (see that workflow\'s header comment ' +
+                'for why a scheduled run is not yet fully unattended).',
+                '',
+                'Fastest fix: approve/dispatch `index-sign.yml` with `role: freshness` (or `root` if ' +
+                'content also changed) now.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            }
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'index-staleness',
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Still failing as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['index-staleness'],
+              });
+            }
+
+      - name: Close the staleness issue once resolved
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'index-staleness',
+            });
+            for (const issue of existing.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Resolved as of this run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
