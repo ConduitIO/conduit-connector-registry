@@ -59,22 +59,24 @@ name: index-sign
 # role=freshness on the published index again without reading that design; this
 # comment exists because the reason is not visible from the code.
 #
-# KNOWN GAP (not fixed by this workflow file alone — needs a human with
-# environment-admin access): FRESHNESS_SIGNING_KEY is an Environment secret
+# WHY A SCHEDULE WOULD NOT HAVE HELPED EVEN IF FRESHNESS WORKED, kept because
+# it constrains the v0.21 design: the signing keys are Environment secrets
 # scoped to `registry-signing`, which carries a required-reviewers protection
-# rule (see root-keygen.yml). GitHub's environment protection applies to
-# every job that references the environment, regardless of trigger or role —
-# so today, a scheduled run of this job still pauses in "Waiting" for manual
-# approval, same as a root-role dispatch. That makes this heartbeat "visible
-# and one-click" rather than truly unattended. Closing that gap requires
-# provisioning a separate, unprotected Environment that holds only
-# FRESHNESS_SIGNING_KEY (or an equivalent copy of it) — an environment/secret-
-# custody change intentionally left out of this PR. See PR description.
+# rule (see root-keygen.yml). GitHub's environment protection applies to every
+# job referencing the environment REGARDLESS OF TRIGGER — so a scheduled run
+# would park in "Waiting" for manual approval exactly like a dispatch does. A
+# nightly schedule would therefore not have reduced maintainer involvement; it
+# would have raised it, from "dispatch when the alarm fires" to "approve a
+# parked job every night".
+#
+# Any future unattended design has to solve THAT, not just the signature-role
+# question — which is why the v0.21 plan is a detached liveness document signed
+# by a low-privilege key in its own ungated environment, rather than another
+# schedule pointed at this job.
 #
 # Role semantics: a first-time client can only verify a ROOT signature, so
-# content changes (the bootstrap empty seed, and every post-register re-sign)
-# use role=root, chosen via manual dispatch. Freshness (liveness-only) now
-# also runs unattended-in-principle via the schedule above.
+# every re-sign of the published index — content change or timestamp-only —
+# uses role=root.
 
 on:
   workflow_dispatch:
@@ -82,7 +84,13 @@ on:
       role:
         description: 'signature role'
         type: choice
-        options: [root, freshness]
+        # `freshness` is deliberately NOT an option. It has no legitimate use
+        # against index/index.json: it replaces the root signature, which a
+        # first-time client cannot verify and the site build refuses outright.
+        # A comment alone is not a guard under incident pressure — and the
+        # alarm's own issue used to recommend exactly this. If a detached
+        # liveness document ever ships (v0.21), it gets its own workflow.
+        options: [root]
         default: root
       reset-to-empty:
         description: 'BOOTSTRAP: overwrite the payload with an empty connectors[] seed before signing (use once, to replace the placeholder index)'
@@ -94,10 +102,10 @@ permissions:
   actions: write   # dispatch deploy.yml after committing the re-signed index
 
 concurrency:
-  # Never let a scheduled heartbeat race a manual root-role dispatch (or two
-  # heartbeats overlap after a slow run) into two concurrent pushes to main.
-  # Queue rather than cancel: a queued root re-sign must never be dropped in
-  # favor of a freshness one.
+  # Two dispatches (say, an alarm-driven re-sign and a post-register content
+  # sign) must never race into concurrent pushes to main, which would risk two
+  # indexes at the same version. Queue rather than cancel: a queued re-sign
+  # must never be silently dropped.
   group: index-sign
   cancel-in-progress: false
 
@@ -197,7 +205,7 @@ jobs:
           git config user.email "registry-signer@conduitdata.io"
           git add index/index.json
           if [ "$ROLE" = "freshness" ]; then
-            git commit -m "chore(index): freshness-sign index/index.json (heartbeat)"
+            git commit -m "chore(index): freshness-sign index/index.json"
           else
             git commit -m "chore(index): root-sign index/index.json"
           fi

@@ -10,21 +10,29 @@ name: index-staleness-alarm
 # PUBLISHED index over plain HTTPS, the same way any `conduit` install would,
 # and checks its age against a threshold BELOW the client's 7-day window —
 # so a maintainer finds out days before any user does, regardless of whether
-# index-sign.yml's daily freshness heartbeat (schedule trigger) actually ran
-# unattended or is stuck waiting on the registry-signing Environment's
-# required-reviewers approval (see index-sign.yml's header comment for that
-# known gap).
+# anyone has re-signed recently.
+#
+# THIS ALARM IS THE TRIGGER, not a backstop for an automatic one. There is no
+# scheduled re-sign: index-sign.yml is workflow_dispatch-only (see its header
+# for why a freshness heartbeat cannot work against the published index), so
+# the published timestamp only moves when a human dispatches role=root. This
+# job exists to tell them when to.
 #
 # maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
-# limit, leaving ~4 days of margin between this alarm firing and the outage
-# index-sign.yml's freshness heartbeat is supposed to prevent from ever
-# actually reaching users.
+# refusal, leaving ~4 days between this alarm firing and users seeing
+# registry.index_stale.
 #
-# 12:30 UTC: after both index-sign.yml's daily heartbeat (05:00 UTC) and
-# deploy.yml's daily Scarf-stats cron (06:17 UTC) have had time to run and
-# for the CDN in front of registry.conduitdata.io to settle — checking too
-# soon after a legitimate re-sign risks a false alarm from propagation lag,
-# not a real staleness problem.
+# OPERATIONAL RISK, stated so it is not rediscovered the hard way: with no
+# automatic re-sign, those ~4 days are the entire margin, a filed GitHub issue
+# is the only notification channel, and this project has one maintainer. A
+# holiday, illness, or a stretch of not reading notifications spends the margin
+# silently. The v0.21 detached-liveness-document design is what removes the
+# human from this path; until then this window is accepted, not solved.
+#
+# 12:30 UTC: after deploy.yml's daily Scarf-stats cron (06:17 UTC) has run and
+# the CDN in front of registry.conduitdata.io has settled — checking too soon
+# after a legitimate re-sign risks a false alarm from propagation lag rather
+# than a real staleness problem.
 
 on:
   schedule:
@@ -67,28 +75,52 @@ jobs:
 
           max_age_hours = float(sys.argv[1])
 
-          with open("/tmp/index.json") as f:
-              doc = json.load(f)
+          def emit(**kv):
+              # GITHUB_OUTPUT is read from the environment, not shell-interpolated
+              # into this heredoc, so the path can't be tampered with by anything
+              # this script itself prints or computes.
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  for k, v in kv.items():
+                      out.write(f"{k}={v}\n")
 
-          # This is an unverified read (no signature check — this job carries
-          # no key material) purely to read a timestamp for a liveness alarm.
-          # It must never be used to authorize any install/content decision;
-          # that trust boundary belongs solely to pkg/registry/index.Verify.
-          ts_raw = doc["payload"]["index"]["timestamp"]
-          ts = datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+          # A malformed index must be reported AS malformed. Letting a parse
+          # error crash this step leaves the outputs unwritten, and the
+          # issue-filing step downstream then reports "index.timestamp
+          # (unknown) is unknownh old" — pointing the responder at a re-sign
+          # when the actual problem is a corrupt or schema-changed document.
+          # Fails closed either way; this is about telling the truth in the
+          # issue, not about safety.
+          try:
+              with open("/tmp/index.json") as f:
+                  doc = json.load(f)
+
+              # This is an unverified read (no signature check — this job carries
+              # no key material) purely to read a timestamp for a liveness alarm.
+              # It must never be used to authorize any install/content decision;
+              # that trust boundary belongs solely to pkg/registry/index.Verify.
+              ts_raw = doc["payload"]["index"]["timestamp"]
+              ts = datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+          except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
+              print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
+              emit(malformed="true", age_hours="unknown", timestamp="unknown", stale="true")
+              sys.exit(1)
+
           now = datetime.now(timezone.utc)
           age_hours = (now - ts).total_seconds() / 3600.0
+
+          # A timestamp in the future is a clock-skew or a bad sign, not
+          # freshness. Report it rather than silently treating it as healthy.
+          if age_hours < 0:
+              print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
+              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, stale="true")
+              sys.exit(1)
 
           print(f"index.timestamp = {ts_raw}")
           print(f"age = {age_hours:.1f}h (alarm threshold = {max_age_hours:.0f}h, "
                 f"client refuses at 168h)")
 
-          # GITHUB_OUTPUT is read from the environment, not shell-interpolated
-          # into this heredoc, so the path can't be tampered with by anything
-          # this script itself prints or computes.
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-              out.write(f"age_hours={age_hours:.1f}\n")
-              out.write(f"timestamp={ts_raw}\n")
+          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw,
+               stale="true" if age_hours > max_age_hours else "false")
 
           if age_hours > max_age_hours:
               sys.exit(1)
@@ -100,18 +132,37 @@ jobs:
         env:
           AGE_HOURS: ${{ steps.check.outputs.age_hours }}
           INDEX_TS: ${{ steps.check.outputs.timestamp }}
+          MALFORMED: ${{ steps.check.outputs.malformed }}
           MAX_AGE_HOURS: ${{ env.MAX_AGE_HOURS }}
           INDEX_URL: ${{ env.INDEX_URL }}
           FETCH_OUTCOME: ${{ steps.fetch.outcome }}
         with:
           script: |
             const fetchFailed = process.env.FETCH_OUTCOME !== 'success';
+            const malformed = process.env.MALFORMED === 'true';
             const title = fetchFailed
               ? 'registry index endpoint is unreachable'
-              : 'registry index is going stale — install will start failing';
+              : malformed
+                ? 'registry index is unreadable — cannot determine freshness'
+                : 'registry index is going stale — install will start failing';
 
             let body;
-            if (fetchFailed) {
+            if (malformed && !fetchFailed) {
+              body = [
+                `Fetched ${process.env.INDEX_URL} successfully, but could not read`,
+                '`payload.index.timestamp` from it — the document is malformed, its schema changed,',
+                'or its timestamp is in the future (clock skew or a bad sign).',
+                '',
+                'This is NOT the ordinary "nobody re-signed recently" case, so do not start by',
+                'dispatching a re-sign. Look at the served document first: a re-sign over a broken',
+                'payload would publish the same breakage with a fresher timestamp.',
+                '',
+                'Check the run log for the exact parse error, then compare the served bytes against',
+                '`index/index.json` on `main`.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else if (fetchFailed) {
               body = [
                 `Could not fetch ${process.env.INDEX_URL} — the registry endpoint itself may be down`,
                 'or unreachable, which is at least as urgent as a stale-but-served index: every',
@@ -130,13 +181,22 @@ jobs:
                 'The shipped `conduit` client refuses the index outright at 168h (7 days) — ' +
                 '`registry.index_stale` — and every `conduit connectors install` starts failing.',
                 '',
-                'Likely cause: `index-sign.yml`\'s daily freshness heartbeat (`schedule:`, 05:00 UTC) ' +
-                'did not complete — most likely it is sitting in "Waiting" for required-reviewer ' +
-                'approval on the `registry-signing` Environment (see that workflow\'s header comment ' +
-                'for why a scheduled run is not yet fully unattended).',
+                'Cause: there is no automatic re-sign. `index-sign.yml` is ' +
+                '`workflow_dispatch`-only by design, so the published index only gets a fresh ' +
+                'timestamp when a human dispatches one. Nobody has in over ' +
+                `${maxAgeHours}h.`,
                 '',
-                'Fastest fix: approve/dispatch `index-sign.yml` with `role: freshness` (or `root` if ' +
-                'content also changed) now.',
+                'Fix: dispatch `index-sign.yml` with **`role: root`** and approve it at the ' +
+                '`registry-signing` Environment gate.',
+                '',
+                'Use `role: root` even though nothing about the content changed. Do NOT use ' +
+                '`role: freshness` against the published index: both roles sign the same ' +
+                'canonicalized payload, so a freshness re-sign REPLACES the root signature rather ' +
+                'than adding to it, and a freshness-only index is refused by a first-time client ' +
+                '(no persisted lastVerifiedContentHash to match) and by the site build ' +
+                '(ERR_INDEX_INTEGRITY, no root-role entry) — the deploy fails and the CDN keeps ' +
+                'serving the stale index. That happened on 2026-08-21; see `index-sign.yml`\'s ' +
+                'header comment.',
                 '',
                 `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               ].join('\n');
