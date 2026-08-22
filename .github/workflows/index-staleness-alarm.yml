@@ -112,10 +112,17 @@ jobs:
           # failures would double the time to detect a real outage.
           # --connect-timeout/--max-time are load-bearing, not hygiene: a CDN
           # that accepts the connection and never responds would otherwise stall
-          # this step until GitHub kills the job at its default 6h limit — and a
-          # killed job runs NEITHER the `if: failure()` filing step nor the
-          # `if: success()` close step. No issue, no comment, just a red run in
-          # an Actions tab whose unwatched-ness is this workflow's own premise.
+          # this step until the job's timeout-minutes (10) kills it — and a
+          # timeout-KILLED job is CANCELLED, so it runs neither the
+          # `if: failure()` filing step nor the `if: success()` close step. No
+          # issue, no comment, just a red run in an Actions tab whose
+          # unwatched-ness is this workflow's own premise.
+          #
+          # So the job timeout is a backstop that notifies nobody, and these
+          # curl bounds are what keep it unreachable on the one path likely to
+          # hang. A hung github-script API call is the remaining route to it;
+          # that is accepted, and named here so it is not rediscovered as a
+          # surprise.
           if ! curl --fail --silent --show-error --retry 3 --retry-delay 5 \
               --connect-timeout 15 --max-time 60 \
               -o /tmp/index.json "$INDEX_URL"; then
@@ -158,6 +165,21 @@ jobs:
               # no key material) purely to read a timestamp for a liveness alarm.
               # It must never be used to authorize any install/content decision;
               # that trust boundary belongs solely to pkg/registry/index.Verify.
+              # Read the version too: the stale-branch issue tells the
+              # responder to compare it against index/index.json on main, which
+              # is the whole point of distinguishing "nobody re-signed" from
+              # "the deploy is broken". Without emitting it, that instruction
+              # refers to a value the issue does not contain.
+              #
+              # Coerced to str and rejected if it contains a newline, because
+              # this lands in GITHUB_OUTPUT: a served document with a version
+              # of "1\nmalformed=false" would otherwise inject a second output
+              # line. The timestamp is only safe from this because strptime
+              # runs before it is emitted.
+              ver_raw = str(doc["payload"]["index"].get("version", "unknown"))
+              if "\n" in ver_raw or "\r" in ver_raw:
+                  raise ValueError(f"index.version contains a newline: {ver_raw!r}")
+
               ts_raw = doc["payload"]["index"]["timestamp"]
               # Format is deliberately strict and matches the producer exactly
               # (index-sign.yml signs with `date -u +%Y-%m-%dT%H:%M:%SZ`).
@@ -176,12 +198,25 @@ jobs:
               # the wrong role" from "signed correctly", which is the failure
               # this repo actually produces.
               # These four conditions mirror isStructurallyValidSignature in
-              # web/src/lib/verifyIndex.ts exactly. Checking fewer would let
-              # documents through that the site build rejects with
-              # ERR_INDEX_INTEGRITY — and a rejected deploy means the CDN keeps
-              # serving the OLD document while this job exits 0, files nothing,
-              # and its close step shuts the open incident issue. Keep these in
-              # step with verifyIndex.ts; a divergence here is silent.
+              # web/src/lib/verifyIndex.ts exactly. Keep them in step with that
+              # file; a divergence here is silent.
+              #
+              # This is DEFENSE IN DEPTH, not a live gap — be precise about
+              # that, because the obvious justification is wrong. The deploy
+              # path already refuses a structurally invalid index:
+              # web/scripts/build-site.ts copies index/index.json into dist/
+              # only AFTER verifyAndParseIndex passes, and post-deploy-smoke.ts
+              # byte-compares the live /index.json against that output. So a
+              # freshness-only document cannot reach the CDN this way — when
+              # the build refuses, the CDN keeps serving the OLD document,
+              # which by construction passed the same gate and is merely
+              # older. This alarm catches THAT as staleness, not as a bad
+              # signature.
+              #
+              # The check exists for a serving path that bypasses the site
+              # build — a hand-upload, a changed publishing pipeline. If a
+              # structurally invalid index is ever served, the alarm must
+              # report it as malformed rather than as health.
               valid_algorithms = {"ed25519", "ecdsa-p256-sha256"}
               sigs = doc.get("signatures") or []
               has_root = any(
@@ -201,7 +236,7 @@ jobs:
                   )
           except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
               print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
-              emit(malformed="true", age_hours="unknown", timestamp="unknown")
+              emit(malformed="true", age_hours="unknown", timestamp="unknown", version="unknown")
               sys.exit(1)
 
           now = datetime.now(timezone.utc)
@@ -217,7 +252,7 @@ jobs:
           clock_skew_tolerance_hours = 1.0 / 60.0
           if age_hours < -clock_skew_tolerance_hours:
               print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
-              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw)
+              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
               sys.exit(1)
 
           print(f"index.timestamp = {ts_raw}")
@@ -228,7 +263,7 @@ jobs:
           # there is no honest value for it — a document whose timestamp cannot
           # be read is not "stale", it is unreadable. The step's exit status and
           # `malformed` carry everything the issue step branches on.
-          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw)
+          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
 
           if age_hours > max_age_hours:
               sys.exit(1)
@@ -240,6 +275,7 @@ jobs:
         env:
           AGE_HOURS: ${{ steps.check.outputs.age_hours }}
           INDEX_TS: ${{ steps.check.outputs.timestamp }}
+          INDEX_VERSION: ${{ steps.check.outputs.version }}
           MALFORMED: ${{ steps.check.outputs.malformed }}
           MAX_AGE_HOURS: ${{ env.MAX_AGE_HOURS }}
           INDEX_URL: ${{ env.INDEX_URL }}
@@ -311,8 +347,9 @@ jobs:
               const indexTs = process.env.INDEX_TS || 'unknown';
               const maxAgeHours = process.env.MAX_AGE_HOURS;
               body = [
-                `The **served** index at ${process.env.INDEX_URL} has ` +"`payload.index.timestamp`"+` = ${indexTs},`,
-                `which is ${ageHours}h old — past this alarm's ${maxAgeHours}h threshold.`,
+                `The **served** index at ${process.env.INDEX_URL} has ` +"`payload.index.timestamp`"+` = ${indexTs}`,
+                `and ` +"`payload.index.version`"+` = **${process.env.INDEX_VERSION || 'unknown'}**.`,
+                `It is ${ageHours}h old — past this alarm's ${maxAgeHours}h threshold.`,
                 '',
                 'The shipped `conduit` client refuses the index outright at 168h (7 days) — ' +
                 '`registry.index_stale` — and every `conduit connectors install` starts failing.',
@@ -321,19 +358,23 @@ jobs:
                 'PUBLISHED document, not the repo, and those can diverge — the 2026-08-21 ' +
                 'incident is exactly the case where they did (repo at v9, CDN still serving v8).',
                 '',
-                'Compare the served `payload.index.version` above against `index/index.json` on ' +
-                '`main`:',
+                'Compare that served version against `index/index.json` on `main`:',
                 '',
                 '- **Repo and served agree** → nobody has re-signed. This is the ordinary case ' +
                 '(there is no automatic re-sign; `index-sign.yml` is `workflow_dispatch`-only by ' +
                 'design). Dispatch `index-sign.yml` with **`role: root`** and approve it at the ' +
                 '`registry-signing` Environment gate.',
                 '- **Repo is AHEAD of served** → signing already happened and the DEPLOY is ' +
-                'broken. Re-signing does nothing, burns a gated approval, and this alarm fires ' +
-                'again tomorrow. Look at `deploy.yml`\'s recent runs instead.',
+                'broken. Look at `deploy.yml`\'s recent runs first. Note it already runs daily ' +
+                'at 06:17 UTC, so by the time this alarm fires at 12:30 a transient failure has ' +
+                'self-retried at least once and is still failing — that distinguishes ' +
+                '"structurally broken" from "blipped", without dispatching anything. A re-sign ' +
+                'does re-dispatch `deploy.yml` (so it is not useless), but it burns a gated ' +
+                'approval to retry something that already retried itself.',
                 '',
-                'Use `role: root` even though nothing about the content changed. Do NOT use ' +
-                '`role: freshness` against the published index: both roles sign the same ' +
+                '`root` is the only selectable role on that form, and here is why ' +
+                '`freshness` was removed rather than merely discouraged — do not re-add it: ' +
+                'both roles sign the same ' +
                 'canonicalized payload, so a freshness re-sign REPLACES the root signature rather ' +
                 'than adding to it, and a freshness-only index is refused by a first-time client ' +
                 '(no persisted lastVerifiedContentHash to match) and by the site build ' +
