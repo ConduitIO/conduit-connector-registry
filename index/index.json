@@ -592,6 +592,73 @@
         ]
       },
       {
+        "name": "pgvector",
+        "publisher": {
+          "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-connector-pgvector/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "expectedOIDCIssuer": "https://token.actions.githubusercontent.com"
+        },
+        "repository": "https://github.com/ConduitIO/conduit-connector-pgvector",
+        "versions": [
+          {
+            "artifacts": [
+              {
+                "arch": "amd64",
+                "kind": "standalone",
+                "os": "linux",
+                "sha256": "c89930faf419bc553ce39dfeb236074171da4097e3b902781887f6cad43e7b5c",
+                "signature": {
+                  "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_linux_amd64.tar.gz.sigstore.json"
+                },
+                "size": 7676247,
+                "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_linux_amd64.tar.gz"
+              },
+              {
+                "arch": "arm64",
+                "kind": "standalone",
+                "os": "linux",
+                "sha256": "2f4a03030f7f531ff35a4a0003ddc25a664fd750514eecf8fdd401a01a0be2e9",
+                "signature": {
+                  "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_linux_arm64.tar.gz.sigstore.json"
+                },
+                "size": 6932996,
+                "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_linux_arm64.tar.gz"
+              },
+              {
+                "arch": "amd64",
+                "kind": "standalone",
+                "os": "darwin",
+                "sha256": "c61d075ca5fd3044e78dce8669fa172941a2193bfbbc0135f8e4fb2a852885df",
+                "signature": {
+                  "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_darwin_amd64.tar.gz.sigstore.json"
+                },
+                "size": 7851691,
+                "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_darwin_amd64.tar.gz"
+              },
+              {
+                "arch": "arm64",
+                "kind": "standalone",
+                "os": "darwin",
+                "sha256": "89b6a8eb8788f930b4fd32ef6358174a7cadc728a175281087ab218255609aeb",
+                "signature": {
+                  "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_darwin_arm64.tar.gz.sigstore.json"
+                },
+                "size": 7279055,
+                "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/pgvector_v0.1.0_darwin_arm64.tar.gz"
+              }
+            ],
+            "deprecated": false,
+            "minConduitVersion": "0.15.0",
+            "minProtocolVersion": "0.9.0",
+            "releasedAt": "2026-08-24T22:45:58.407746744Z",
+            "slsaProvenance": {
+              "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.0/multiple.intoto.jsonl",
+              "predicateType": "https://slsa.dev/provenance/v1"
+            },
+            "version": "v0.1.0"
+          }
+        ]
+      },
+      {
         "name": "postgres",
         "publisher": {
           "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-connector-postgres/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$",
@@ -713,8 +780,8 @@
       }
     ],
     "index": {
-      "timestamp": "2026-08-21T19:26:17Z",
-      "version": 10
+      "timestamp": "2026-08-24T22:50:54Z",
+      "version": 11
     },
     "processors": [
       {
@@ -793,7 +860,7 @@
       "role": "root",
       "keyId": "sha256:d657c2717760931c3771ec151e88fc143642b5c73ce79a3665fbf0f37f009795",
       "algorithm": "ed25519",
-      "signature": "nm+NVJr/E1eiU2xCkI+AUhwciFE+1RwYytgYVCgZCe/Soi1+6Hv4ohzCfrOge7sXyMJ1FthDv600jw80D7/zBg=="
+      "signature": "ydKx4kxGQaDukSa1vtvP6Ih0Te6xF1INPKuBtXB7qD1esyNHYbIiKUI39Td7ZcPX8BasVyQMhvtOcwYj2c+sBA=="
     }
   ]
 }
