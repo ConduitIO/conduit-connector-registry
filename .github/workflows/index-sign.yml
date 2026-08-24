@@ -4,31 +4,121 @@ name: index-sign
 # envelope back to main. This is what makes the index verifiable by the shipped
 # client (index.Verify) and the publish Action's register step.
 #
-# workflow_dispatch ONLY: every use of the root key is a deliberate, gated
-# action (environment: registry-signing, required reviewer = maintainer). Being
-# dispatch-only also means the signed-index commit this pushes can never
-# re-trigger the workflow — no loop.
+# Root-key uses stay workflow_dispatch ONLY: every use of the root key is a
+# deliberate, gated action (environment: registry-signing, required reviewer =
+# maintainer). A manual dispatch's signed-index commit can never re-trigger
+# this workflow — no loop (pushes made with GITHUB_TOKEN don't fire Actions).
+#
+# WHY THERE IS NO SCHEDULED HEARTBEAT HERE, AND WHY `freshness` CANNOT SIGN
+# THE PUBLISHED INDEX.
+#
+# An earlier revision of this file added a daily `schedule:` that signed
+# role=freshness. It was removed after being run for real on 2026-08-21 to
+# clear a live outage. What happened:
+#
+#   sign job:   success  -> committed index version 9, signatures: ['freshness']
+#   deploy job: FAILURE  -> [registry-web] BUILD FAILED [ERR_INDEX_INTEGRITY]:
+#                           index has no structurally valid `root`-role
+#                           signature entry - refusing to render from it
+#
+# The repo got a fresh index; the CDN kept serving the 18-day-old one. A
+# nightly heartbeat built this way would have gone GREEN on this job and RED on
+# deploy every night, leaving the published index frozen - the exact failure it
+# existed to prevent, with a passing checkmark beside it.
+#
+# The cause is not a bug in either job. Both signature roles sign the SAME
+# canonicalized payload, so refreshing index.timestamp invalidates the previous
+# root signature: a freshness re-sign REPLACES the root signature rather than
+# adding to it. And an index carrying only a freshness signature is rejected by
+# both consumers, for independent reasons:
+#
+#   * A first-time client cannot verify it. pkg/registry/index/verify.go
+#     accepts a freshness signature only when the client's persisted
+#     lastVerifiedContentHash matches the payload's content subtree. A fresh
+#     install has no such hash, and verify.go's own doc says it outright:
+#     "a freshness-only index can never be the FIRST index a client ever
+#     accepts, by construction".
+#   * The site build refuses it - web/src/lib/verifyIndex.ts requires a
+#     structurally valid root-role entry before it will render anything.
+#
+# So the PUBLISHED index must always carry a root signature. Freshness is
+# usable only for a consumer that has already root-verified this content, which
+# the published artifact's audience is not.
+#
+# The liveness problem is therefore solved by index-staleness-alarm.yml, which
+# fetches the published index like a real client and fails loudly at 72h -
+# three to four days before the shipped client's 168h refusal
+# (pkg/registry/index/freeze.go DefaultMaxStaleness). The alarm is the trigger;
+# a human dispatches a role=root re-sign when it fires.
+#
+# Be accurate about the cost, because the comparison below depends on it: that
+# is TWO actions (dispatch, then approve the Environment gate), not one, and
+# because nothing re-signs automatically the alarm fires on a fixed ~3-day
+# cadence rather than only when something is wrong — see the alarm's own header.
+# So this is roughly 120 dispatch-and-approve cycles a year. It still beats the
+# scheduled alternative, which would have parked a job for approval every single
+# night (365 approvals) and, as the section below explains, could not have
+# signed anything usable anyway.
+#
+# Doing this properly - a low-privilege key that can extend liveness unattended
+# - needs a detached, freshness-signed liveness document separate from the
+# index, plus client support for it. That is filed for v0.21. Do not reach for
+# role=freshness on the published index again without reading that design; this
+# comment exists because the reason is not visible from the code.
+#
+# WHY A SCHEDULE WOULD NOT HAVE HELPED EVEN IF FRESHNESS WORKED, kept because
+# it constrains the v0.21 design: the signing keys are Environment secrets
+# scoped to `registry-signing`, which carries a required-reviewers protection
+# rule (see root-keygen.yml). GitHub's environment protection applies to every
+# job referencing the environment REGARDLESS OF TRIGGER — so a scheduled run
+# would park in "Waiting" for manual approval exactly like a dispatch does. A
+# nightly schedule would therefore not have reduced maintainer involvement; it
+# would have raised it, from "dispatch when the alarm fires" to "approve a
+# parked job every night".
+#
+# Any future unattended design has to solve THAT, not just the signature-role
+# question — which is why the v0.21 plan is a detached liveness document signed
+# by a low-privilege key in its own ungated environment, rather than another
+# schedule pointed at this job.
 #
 # Role semantics: a first-time client can only verify a ROOT signature, so
-# content changes (the bootstrap empty seed, and every post-register re-sign)
-# use role=root. Freshness (liveness-only) is a fast-follow.
+# every re-sign of the published index — content change or timestamp-only —
+# uses role=root.
 
 on:
   workflow_dispatch:
     inputs:
       role:
-        description: 'signature role'
+        # Nothing reads this value — the signing step hard-codes ROLE: root.
+        # It exists so GitHub's own choice validation rejects
+        # `gh workflow run -f role=freshness` at the API boundary, before any
+        # job starts. A dropped input would silently accept that flag instead.
+        description: 'signature role (root is the only valid role; see the header)'
         type: choice
-        options: [root, freshness]
+        # `freshness` is deliberately NOT an option. It has no legitimate use
+        # against index/index.json: it replaces the root signature, which a
+        # first-time client cannot verify and the site build refuses outright.
+        # A comment alone is not a guard under incident pressure — and the
+        # alarm's own issue used to recommend exactly this. If a detached
+        # liveness document ever ships (v0.21), it gets its own workflow.
+        options: [root]
         default: root
-      reset-to-empty:
-        description: 'BOOTSTRAP: overwrite the payload with an empty connectors[] seed before signing (use once, to replace the placeholder index)'
-        type: boolean
-        default: false
-
 permissions:
   contents: write
   actions: write   # dispatch deploy.yml after committing the re-signed index
+
+concurrency:
+  # Two dispatches (say, an alarm-driven re-sign and a post-register content
+  # sign) must never race into concurrent pushes to main, which would risk two
+  # indexes at the same version. Queue rather than cancel.
+  #
+  # Not a durability guarantee: GitHub holds at most ONE pending run per group,
+  # so a third dispatch cancels the pending second. That is harmless here only
+  # because every run re-assembles from index/connectors and re-timestamps, so
+  # the surviving run subsumes whatever the cancelled one would have done. Do
+  # not rely on this group to serialize work that is NOT idempotent.
+  group: index-sign
+  cancel-in-progress: false
 
 jobs:
   sign:
@@ -44,47 +134,39 @@ jobs:
       - name: Build the signer
         run: go build -o /tmp/index-sign ./cmd/index-sign
 
-      - name: Bootstrap — reset payload to an empty seed
-        if: ${{ inputs.reset-to-empty }}
-        run: |
-          set -euo pipefail
-          # Fresh empty index: version 1 (no client has ever fetched a served
-          # index — registry.conduitdata.io only goes live with this run), current
-          # timestamp. connectors[] empty; seeds are added via the real register
-          # flow.
-          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          printf '{"schemaVersion":1,"index":{"version":1,"timestamp":"%s"},"connectors":[]}\n' "$TS" > index/index.json
-          echo "reset index/index.json to empty seed (timestamp $TS)"
-
       - name: Assemble + root-sign the index
+        # FRESHNESS_SIGNING_KEY is deliberately NOT in this env block. Root is
+        # the only dispatchable role (see the `role` input), so injecting the
+        # freshness key here would put key material the workflow cannot legally
+        # use into the signing step's environment — and would leave re-enabling
+        # freshness a one-token edit to the `options:` list. Rebuilding the
+        # freshness path means rebuilding it deliberately, and re-reading the
+        # header that explains why it breaks the published index.
         env:
           ROOT_SIGNING_KEY: ${{ secrets.ROOT_SIGNING_KEY }}
-          FRESHNESS_SIGNING_KEY: ${{ secrets.FRESHNESS_SIGNING_KEY }}
-          ROLE: ${{ inputs.role }}
-          RESET: ${{ inputs.reset-to-empty }}
+          ROLE: root
         run: |
           set -euo pipefail
-          if [ "$ROLE" = "freshness" ]; then
-            KEY="$FRESHNESS_SIGNING_KEY"; KEYENV=FRESHNESS_SIGNING_KEY
-          else
-            KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
-          fi
+          KEY="$ROOT_SIGNING_KEY"; KEYENV=ROOT_SIGNING_KEY
           if [ -z "$KEY" ]; then
-            echo "::error::signing key for role=$ROLE is empty in the registry-signing Environment" >&2
+            # Fail loudly, never silently: an empty key here (missing secret,
+            # environment misconfigured, or the required-reviewers gate
+            # somehow bypassed) must surface as a red X, not a quiet no-op —
+            # that silence is exactly how the index went 18 days stale with
+            # nobody noticing.
+            echo "::error::the root signing key is empty in the registry-signing Environment" >&2
             exit 1
           fi
           # index-sign reads the key from the named env var (never an arg/log).
+          # index-sign reads the key from the named env var (never an arg/log).
+          # Rebuild payload.connectors[] AND payload.processors[] from the
+          # per-entry source files the publish Action's register PRs add
+          # (index/connectors/*.json, index/processors/*.json), bumping
+          # index.version monotonically. processors[] is omitted entirely when
+          # index/processors has no files, keeping a connector-only index
+          # byte-identical to the pre-processor schema.
           ARGS=(-in index/index.json -out index/index.json -role "$ROLE" -key-env "$KEYENV")
-          if [ "$RESET" != "true" ]; then
-            # Rebuild payload.connectors[] AND payload.processors[] from the
-            # per-entry source files the publish Action's register PRs add
-            # (index/connectors/*.json, index/processors/*.json), bumping
-            # index.version monotonically. processors[] is omitted entirely when
-            # index/processors has no files, keeping a connector-only index
-            # byte-identical to the pre-processor schema. reset-to-empty skips
-            # this and signs the empty seed the bootstrap step wrote.
-            ARGS+=(-assemble-from index/connectors -assemble-processors-from index/processors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
-          fi
+          ARGS+=(-assemble-from index/connectors -assemble-processors-from index/processors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
           /tmp/index-sign "${ARGS[@]}"
 
       - name: Commit + push the signed index (if changed)
@@ -93,6 +175,11 @@ jobs:
         run: |
           set -euo pipefail
           if git diff --quiet -- index/index.json; then
+            # Not reachable: every run takes the -assemble-from path, where
+            # cmd/index-sign/main.go bumps index.version and a fresh -timestamp
+            # is always passed, so a re-sign always moves the file. Kept as an
+            # honest no-op rather than an assertion, since a signer change could
+            # make it reachable and a hard failure here would be confusing.
             echo "index/index.json unchanged after signing — nothing to commit (deterministic ed25519 over an unchanged payload)."
             exit 0
           fi
@@ -108,15 +195,11 @@ jobs:
           echo "dispatched deploy.yml for the re-signed index"
 
       - name: Job summary
-        env:
-          ROLE: ${{ inputs.role }}
-          RESET: ${{ inputs.reset-to-empty }}
         run: |
           {
             echo "## index signed"
             echo ""
-            echo "- role: \`${ROLE}\`"
-            echo "- reset-to-empty: \`${RESET}\`"
+            echo "- role: \`root\`"
             echo "- connectors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload']['connectors']))")\`"
             echo "- processors: \`$(python3 -c "import json;print(len(json.load(open('index/index.json'))['payload'].get('processors',[])))")\`"
             echo ""

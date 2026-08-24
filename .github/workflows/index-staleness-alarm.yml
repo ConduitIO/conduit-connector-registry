@@ -1,0 +1,460 @@
+name: index-staleness-alarm
+
+# Independent, secret-free detector for exactly the class of outage that
+# caused `conduit connectors install` to fail for every user for 18 days
+# (index/index.json's payload.index.timestamp aged past the shipped client's
+# 7-day DefaultMaxStaleness — pkg/registry/index/freeze.go in ConduitIO/conduit
+# — with nobody noticing until a user hit it).
+#
+# This job does NOT sign anything and needs no secret: it fetches the
+# PUBLISHED index over plain HTTPS, from the same URL a `conduit` install
+# would, and checks its age against a threshold BELOW the client's 7-day
+# window — so a maintainer finds out days before any user does, regardless of
+# whether anyone has re-signed recently.
+#
+# It is NOT a full client-equivalent verification. It carries no key material,
+# so it cannot check the root signature cryptographically. It does assert that
+# a root-role signature entry is structurally present (see below) — because a
+# freshly-timestamped index carrying only a freshness signature is the specific
+# way this repo has already broken the published artifact once, and reading it
+# as healthy would be worse than silence: the close step would shut THIS
+# ALARM'S OWN open incident issue and report the outage resolved. (It cannot
+# close a human's issue — see the author filter on the close step — but its own
+# is the one that matters here.)
+#
+# THIS ALARM IS THE TRIGGER, not a backstop for an automatic one. There is no
+# scheduled re-sign: index-sign.yml is workflow_dispatch-only (see its header
+# for why a freshness heartbeat cannot work against the published index), so
+# the published timestamp only moves when a human dispatches role=root. This
+# job exists to tell them when to.
+#
+# maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
+# refusal. Note the margin is a RANGE, not a number: this job samples once a
+# day, so crossing 72h is detected somewhere between 72h and 96h, leaving
+# 3-4 days before users see registry.index_stale. The worst case is the one
+# that matters, because the threshold below is justified on it.
+#
+# BE CLEAR ABOUT WHAT THIS IS: because nothing re-signs automatically, the
+# timestamp only moves when a human dispatches. So this alarm fires on a fixed
+# ~3-day cadence forever — roughly 120 issues and 120 gated approvals a year —
+# not on an anomaly. It is a recurring re-sign chore reminder that happens to
+# also catch genuine breakage. That distinction matters: alarm fatigue is the
+# mechanism by which the original outage went unnoticed for 18 days, and a
+# detector that cries wolf every third day is vulnerable to exactly that.
+#
+# The threshold was NOT raised to cut the cadence. 120h would fire every 5 days
+# instead of every 3, but leaves only 24-48h of margin (same sampling caveat)
+# — and for a single maintainer who might be travelling, margin is worth more
+# than quiet. The real
+# fix is v0.21's detached liveness document, which removes the human from the
+# loop entirely and makes this alarm anomaly-only.
+#
+# OPERATIONAL RISK, stated so it is not rediscovered the hard way: with no
+# automatic re-sign, those 3-4 days are the entire margin, a filed GitHub issue
+# is the only notification channel, and this project has one maintainer. A
+# holiday, illness, or a stretch of not reading notifications spends the margin
+# silently. The v0.21 detached-liveness-document design is what removes the
+# human from this path; until then this window is accepted, not solved.
+#
+# One more way this goes quiet, named because it is the only failure that is
+# silent in BOTH directions: GitHub auto-disables scheduled workflows in a
+# public repo after 60 days of repository inactivity. In steady state the
+# ~3-day re-sign commits keep resetting that clock, so it cannot bite before
+# the client's 7-day window — but if the re-sign loop is already broken, the
+# detector stops too, and nothing announces it.
+#
+# 12:30 UTC: after deploy.yml's daily Scarf-stats cron (06:17 UTC) has run and
+# the CDN in front of registry.conduitdata.io has settled — checking too soon
+# after a legitimate re-sign risks a false alarm from propagation lag rather
+# than a real staleness problem.
+
+on:
+  schedule:
+    - cron: '30 12 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  # No actions/checkout in this job — it only fetches a public URL and files an
+  # issue, so it needs no repository contents at all.
+  contents: none
+  issues: write
+
+env:
+  INDEX_URL: https://registry.conduitdata.io/index.json
+  MAX_AGE_HOURS: '72'
+
+# A dispatch landing during the 12:30 run would otherwise give two runs that
+# both see zero open bot issues and both file one. The filing step only ever
+# touches ours[0] thereafter, so the duplicate would linger until a green run
+# closed both.
+concurrency:
+  group: index-staleness-alarm
+  cancel-in-progress: false
+
+jobs:
+  check-staleness:
+    runs-on: ubuntu-latest
+    # Backstop for anything that hangs outside curl's own timeouts. Well above
+    # a normal run (seconds) and far below GitHub's 6h default.
+    timeout-minutes: 10
+    steps:
+      - name: Fetch the published index
+        id: fetch
+        run: |
+          set -euo pipefail
+          # --fail: a non-2xx response (e.g. the CDN itself is down) is a
+          # visible failure, not an empty 200-with-error-page body.
+          #
+          # ~15s of retry tolerance, so a single CDN blip at 12:30 UTC files an
+          # "endpoint is unreachable" issue. Accepted rather than adding a
+          # consecutive-failure requirement: a false positive here self-heals
+          # (the next day's run closes the issue), whereas requiring two
+          # failures would double the time to detect a real outage.
+          # --connect-timeout/--max-time are load-bearing, not hygiene: a CDN
+          # that accepts the connection and never responds would otherwise stall
+          # this step until the job's timeout-minutes (10) kills it — and a
+          # timeout-KILLED job is CANCELLED, so it runs neither the
+          # `if: failure()` filing step nor the `if: success()` close step. No
+          # issue, no comment, just a red run in an Actions tab whose
+          # unwatched-ness is this workflow's own premise.
+          #
+          # So the job timeout is a backstop that notifies nobody, and these
+          # curl bounds are what keep it unreachable on the one path likely to
+          # hang. A hung github-script API call is the remaining route to it;
+          # that is accepted, and named here so it is not rediscovered as a
+          # surprise.
+          if ! curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+              --connect-timeout 15 --max-time 60 \
+              -o /tmp/index.json "$INDEX_URL"; then
+            echo "::error::could not fetch $INDEX_URL — the registry endpoint itself may be down"
+            exit 1
+          fi
+
+      - name: Check payload.index.timestamp age
+        id: check
+        run: |
+          set -euo pipefail
+          python3 - "${MAX_AGE_HOURS:-72}" <<'PYEOF'
+          import json
+          import os
+          import sys
+          from datetime import datetime, timezone
+
+          max_age_hours = float(sys.argv[1])
+
+          def emit(**kv):
+              # GITHUB_OUTPUT is read from the environment, not shell-interpolated
+              # into this heredoc, so the path can't be tampered with by anything
+              # this script itself prints or computes.
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  for k, v in kv.items():
+                      out.write(f"{k}={v}\n")
+
+          # A malformed index must be reported AS malformed. Letting a parse
+          # error crash this step leaves the outputs unwritten, and the
+          # issue-filing step downstream then reports "index.timestamp
+          # (unknown) is unknownh old" — pointing the responder at a re-sign
+          # when the actual problem is a corrupt or schema-changed document.
+          # Fails closed either way; this is about telling the truth in the
+          # issue, not about safety.
+          try:
+              with open("/tmp/index.json") as f:
+                  doc = json.load(f)
+
+              # This is an unverified read (no signature check — this job carries
+              # no key material) purely to read a timestamp for a liveness alarm.
+              # It must never be used to authorize any install/content decision;
+              # that trust boundary belongs solely to pkg/registry/index.Verify.
+              # Read the version too: the stale-branch issue tells the
+              # responder to compare it against index/index.json on main, which
+              # is the whole point of distinguishing "nobody re-signed" from
+              # "the deploy is broken". Without emitting it, that instruction
+              # refers to a value the issue does not contain.
+              #
+              # Coerced to str and rejected if it contains a newline, because
+              # this lands in GITHUB_OUTPUT: a served document with a version
+              # of "1\nmalformed=false" would otherwise inject a second output
+              # line. The timestamp is only safe from this because strptime
+              # runs before it is emitted.
+              ver_raw = str(doc["payload"]["index"].get("version", "unknown"))
+              if "\n" in ver_raw or "\r" in ver_raw:
+                  raise ValueError(f"index.version contains a newline: {ver_raw!r}")
+
+              ts_raw = doc["payload"]["index"]["timestamp"]
+              # Format is deliberately strict and matches the producer exactly
+              # (index-sign.yml signs with `date -u +%Y-%m-%dT%H:%M:%SZ`).
+              # Fractional seconds or a +00:00 offset are rejected as malformed
+              # rather than parsed leniently — if the signer's format ever
+              # changes, this should fail loudly on day one, not drift.
+              ts = datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+              # A fresh timestamp over a document that no client would accept is
+              # not health. The published index MUST carry a root-role
+              # signature: a freshness-only re-sign replaces it, and both a
+              # first-time client and the site build then refuse the document
+              # (ERR_INDEX_INTEGRITY). That exact mistake has already been made
+              # against this artifact once. Structural check only — no crypto,
+              # no key material in this job — but it distinguishes "signed by
+              # the wrong role" from "signed correctly", which is the failure
+              # this repo actually produces.
+              # These four conditions mirror isStructurallyValidSignature in
+              # web/src/lib/verifyIndex.ts exactly. Keep them in step with that
+              # file; a divergence here is silent.
+              #
+              # This is DEFENSE IN DEPTH, not a live gap — be precise about
+              # that, because the obvious justification is wrong. The deploy
+              # path already refuses a structurally invalid index:
+              # web/scripts/build-site.ts copies index/index.json into dist/
+              # only AFTER verifyAndParseIndex passes, and post-deploy-smoke.ts
+              # byte-compares the live /index.json against that output. So a
+              # freshness-only document cannot reach the CDN this way — when
+              # the build refuses, the CDN keeps serving the OLD document,
+              # which by construction passed the same gate and is merely
+              # older. This alarm catches THAT as staleness, not as a bad
+              # signature.
+              #
+              # The check exists for a serving path that bypasses the site
+              # build — a hand-upload, a changed publishing pipeline. If a
+              # structurally invalid index is ever served, the alarm must
+              # report it as malformed rather than as health.
+              valid_algorithms = {"ed25519", "ecdsa-p256-sha256"}
+              sigs = doc.get("signatures") or []
+              has_root = any(
+                  isinstance(sig, dict)
+                  and sig.get("role") == "root"
+                  and isinstance(sig.get("keyId"), str) and sig["keyId"]
+                  and sig.get("algorithm") in valid_algorithms
+                  and isinstance(sig.get("signature"), str) and sig["signature"]
+                  for sig in sigs
+              )
+              if not has_root:
+                  roles = [sig.get("role") for sig in sigs if isinstance(sig, dict)]
+                  raise ValueError(
+                      "served index carries no structurally valid root-role signature "
+                      f"(roles present: {roles or 'none'}); the site build would refuse this "
+                      "document with ERR_INDEX_INTEGRITY"
+                  )
+          except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
+              print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
+              emit(malformed="true", age_hours="unknown", timestamp="unknown", version="unknown")
+              sys.exit(1)
+
+          now = datetime.now(timezone.utc)
+          age_hours = (now - ts).total_seconds() / 3600.0
+
+          # A timestamp in the future is clock skew or a bad sign, not
+          # freshness. Report it rather than silently treating it as healthy.
+          #
+          # Small tolerance so one second of drift between the signer's clock
+          # and this runner's does not file an "index is unreadable" incident.
+          # 60s is far below any interval that could hide a real problem: the
+          # threshold this guards is 72 HOURS.
+          clock_skew_tolerance_hours = 1.0 / 60.0
+          if age_hours < -clock_skew_tolerance_hours:
+              print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
+              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
+              sys.exit(1)
+
+          print(f"index.timestamp = {ts_raw}")
+          print(f"age = {age_hours:.1f}h (alarm threshold = {max_age_hours:.0f}h, "
+                f"client refuses at 168h)")
+
+          # No `stale` output: nothing reads it, and on the malformed paths above
+          # there is no honest value for it — a document whose timestamp cannot
+          # be read is not "stale", it is unreadable. The step's exit status and
+          # `malformed` carry everything the issue step branches on.
+          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
+
+          if age_hours > max_age_hours:
+              sys.exit(1)
+          PYEOF
+
+      - name: Open/update an issue on staleness or fetch failure
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          AGE_HOURS: ${{ steps.check.outputs.age_hours }}
+          INDEX_TS: ${{ steps.check.outputs.timestamp }}
+          INDEX_VERSION: ${{ steps.check.outputs.version }}
+          MALFORMED: ${{ steps.check.outputs.malformed }}
+          MAX_AGE_HOURS: ${{ env.MAX_AGE_HOURS }}
+          INDEX_URL: ${{ env.INDEX_URL }}
+          FETCH_OUTCOME: ${{ steps.fetch.outcome }}
+        with:
+          script: |
+            const fetchFailed = process.env.FETCH_OUTCOME !== 'success';
+            // The Python emits malformed=true|false on every path it controls.
+            // Neither value means it never got that far — the step died AROUND
+            // the script (an unbound variable under `set -u`, python3 missing,
+            // the runner OOMing). Without this distinction that case falls into
+            // the ordinary-staleness branch below and reports "(unknown) is
+            // unknownh old", sending the responder to re-sign when the check
+            // never actually ran. It fails closed either way; this is about the
+            // issue telling the truth.
+            const reported = process.env.MALFORMED === 'true' || process.env.MALFORMED === 'false';
+            const malformed = process.env.MALFORMED === 'true';
+            const noReport = !fetchFailed && !reported;
+
+            const title = fetchFailed
+              ? 'registry index endpoint is unreachable'
+              : noReport
+                ? 'registry freshness check failed to run — freshness is UNKNOWN'
+                : malformed
+                  ? 'registry index is unreadable — cannot determine freshness'
+                  : 'registry index is going stale — install will start failing';
+
+            let body;
+            if (noReport) {
+              body = [
+                'The freshness check step failed before it could report anything, so this run',
+                'says NOTHING about whether the published index is fresh, stale, or broken.',
+                'Do not assume either way.',
+                '',
+                'This is a fault in the alarm itself, not (necessarily) in the index. Read the run',
+                'log for the step error, fix the workflow, and re-run it before deciding whether a',
+                're-sign is needed.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else if (malformed && !fetchFailed) {
+              body = [
+                `Fetched ${process.env.INDEX_URL} successfully, but could not read`,
+                '`payload.index.timestamp` from it — the document is malformed, its schema changed,',
+                'or its timestamp is in the future (clock skew or a bad sign).',
+                '',
+                'This is NOT the ordinary "nobody re-signed recently" case, so do not start by',
+                'dispatching a re-sign. Look at the served document first: a re-sign over a broken',
+                'payload would publish the same breakage with a fresher timestamp.',
+                '',
+                'Check the run log for the exact parse error, then compare the served bytes against',
+                '`index/index.json` on `main`.',
+                '',
+                ...(process.env.INDEX_TS && process.env.INDEX_TS !== 'unknown'
+                  ? [`Served timestamp: ${process.env.INDEX_TS} (age ${process.env.AGE_HOURS}h — a negative age means it is future-dated).`, '']
+                  : []),
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else if (fetchFailed) {
+              body = [
+                `Could not fetch ${process.env.INDEX_URL} — the registry endpoint itself may be down`,
+                'or unreachable, which is at least as urgent as a stale-but-served index: every',
+                '`conduit connectors install` is failing right now.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            } else {
+              const ageHours = process.env.AGE_HOURS || 'unknown';
+              const indexTs = process.env.INDEX_TS || 'unknown';
+              const maxAgeHours = process.env.MAX_AGE_HOURS;
+              body = [
+                `The **served** index at ${process.env.INDEX_URL} has ` +"`payload.index.timestamp`"+` = ${indexTs}`,
+                `and ` +"`payload.index.version`"+` = **${process.env.INDEX_VERSION || 'unknown'}**.`,
+                `It is ${ageHours}h old — past this alarm's ${maxAgeHours}h threshold.`,
+                '',
+                'The shipped `conduit` client refuses the index outright at 168h (7 days) — ' +
+                '`registry.index_stale` — and every `conduit connectors install` starts failing.',
+                '',
+                '**First, work out which of the two failures this is.** This job reads the ' +
+                'PUBLISHED document, not the repo, and those can diverge — the 2026-08-21 ' +
+                'incident is exactly the case where they did (repo at v9, CDN still serving v8).',
+                '',
+                'Compare that served version against `index/index.json` on `main`:',
+                '',
+                '- **Repo and served agree** → nobody has re-signed. This is the ordinary case ' +
+                '(there is no automatic re-sign; `index-sign.yml` is `workflow_dispatch`-only by ' +
+                'design). Dispatch `index-sign.yml` with **`role: root`** and approve it at the ' +
+                '`registry-signing` Environment gate.',
+                '- **Repo is AHEAD of served** → signing already happened and the DEPLOY is ' +
+                'broken. Look at `deploy.yml`\'s recent runs first. Note it already runs daily ' +
+                'at 06:17 UTC, so by the time this alarm fires at 12:30 a transient failure has ' +
+                'self-retried at least once and is still failing — that distinguishes ' +
+                '"structurally broken" from "blipped", without dispatching anything. A re-sign ' +
+                'does re-dispatch `deploy.yml` (so it is not useless), but it burns a gated ' +
+                'approval to retry something that already retried itself.',
+                '',
+                '`root` is the only selectable role on that form, and here is why ' +
+                '`freshness` was removed rather than merely discouraged — do not re-add it: ' +
+                'both roles sign the same ' +
+                'canonicalized payload, so a freshness re-sign REPLACES the root signature rather ' +
+                'than adding to it, and a freshness-only index is refused by a first-time client ' +
+                '(no persisted lastVerifiedContentHash to match) and by the site build ' +
+                '(ERR_INDEX_INTEGRITY, no root-role entry) — the deploy fails and the CDN keeps ' +
+                'serving the stale index. That happened on 2026-08-21; see `index-sign.yml`\'s ' +
+                'header comment.',
+                '',
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n');
+            }
+
+            // listForRepo returns PULL REQUESTS as well as issues. Without the
+            // filter, a PR that happens to carry this label absorbs the alarm:
+            // the incident body is posted as a PR comment and no issue is ever
+            // filed. Filter to bot-authored issues only — a human tracking an
+            // index incident under the same label is theirs to manage, not
+            // ours to comment on or (see the close step) close.
+            const isOurs = (i) => !i.pull_request && i.user?.login === 'github-actions[bot]';
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'index-staleness',
+              per_page: 100,
+            });
+            const ours = existing.filter(isOurs);
+            if (ours.length > 0) {
+              // The outcome class can change between runs (stale -> malformed,
+              // say). Update the title too, or the issue keeps a heading that
+              // contradicts its own newest comment.
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ours[0].number,
+                title,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ours[0].number,
+                body: `Still failing as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['index-staleness'],
+              });
+            }
+
+      - name: Close the staleness issue once resolved
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Same filter as the filing step, and for a sharper reason: without
+            // it this loop CLOSES pull requests carrying the label, and closes
+            // index-incident issues a human opened, the moment the timestamp
+            // happens to read fresh. Only close what this workflow filed.
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'index-staleness',
+              per_page: 100,
+            });
+            const ours = existing.filter((i) => !i.pull_request && i.user?.login === 'github-actions[bot]');
+            for (const issue of ours) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Resolved as of this run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
