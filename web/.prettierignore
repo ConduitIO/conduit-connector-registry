@@ -1,5 +1,0 @@
-dist
-.astro
-.generated
-public/search-manifest.json
-node_modules

@@ -3,3 +3,6 @@
 /index-sign
 cmd/index-sign/index-sign
 index/*.tmp
+
+# Local Pages-artifact staging (deploy.yml publishes this; never committed)
+.pages/

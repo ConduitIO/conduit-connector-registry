@@ -1,21 +1,39 @@
 name: Deploy
 
-# The actual deploy pipeline (step6-web-ui.md §3 steps 9-10). Runs the SAME
-# build (verify -> derive -> astro build -> byte-verify) as ci.yml, then adds:
-# GitHub Pages deploy, then a post-deploy smoke check that byte-compares the
-# LIVE /index.json against the one this run just verified — catches a broken
-# deploy or a stale CDN cache (step6-web-ui.md §9 edge case).
+# S6 (ws4-plan.md §2 S6, amended AC 4.10): build-free publication of the
+# signed index. This is the decoupling that fixes the 21 Aug outage mechanism —
+# the old deploy.yml built the stale `web/` copy and a UI a11y/lint failure
+# could block a signed index from reaching users. There is NO UI build in this
+# workflow: it publishes index/index.json to GitHub Pages (the repo's Pages
+# project, served at https://index.conduitdata.io/index.json) and then notifies
+# conduit-registry-ui, which owns the human-facing site at
+# https://registry.conduitdata.io (its own deploy workflow, S6 PR B).
 #
-# Triggers: (a) push to main after an index-content merge, (b) daily cron
-# (refresh Scarf stats even when the index hasn't changed), (c) manual dispatch.
+# The canonical index URL https://index.conduitdata.io/index.json never moves.
+# The CLI's compiled-in default (registry.DefaultIndexURL,
+# https://registry.conduitdata.io/index.json) also never moves: it is served by
+# the UI repo's build output (dist/index.json, a byte-copy of the verified
+# index) once S6 PR B deploys, and by this Pages project in the interim — the
+# same signed bytes either way.
+#
+# Triggers:
+#   (a) push to main touching index/** — an index-content merge;
+#   (b) .github/workflows/deploy.yml itself (so this workflow's first merge
+#       publishes immediately);
+#   (c) workflow_dispatch — index-sign.yml dispatches this after every re-sign
+#       (GITHUB_TOKEN pushes do not fire workflows, so the ceremony dispatches
+#       explicitly; its "Commit + push" step is the primary trigger in
+#       practice). Manual dispatch is also available.
+#
+# There is deliberately NO schedule: the old daily cron existed to refresh
+# Scarf stats in the web build, which no longer exists here. The daily rebuild
+# cadence moved to the UI repo's deploy workflow (its cron, AC 4.11).
 on:
   push:
     branches: [main]
     paths:
-      - 'web/**'
       - 'index/**'
-  schedule:
-    - cron: '17 6 * * *' # daily — Scarf stats refresh even with no content change
+      - '.github/workflows/deploy.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -27,55 +45,62 @@ concurrency:
   group: pages-deploy
   cancel-in-progress: false
 
-env:
-  SITE_URL: https://registry.conduitdata.io
-
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+      # Structural gate before anything is uploaded — see
+      # .github/scripts/index-gate.py for what it asserts and why it is
+      # structural-only (crypto lives in the ceremony + the UI's S2 build).
+      - name: Structural gate on the signed index
+        run: python3 .github/scripts/index-gate.py
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck + lint (fail closed before ever building)
+      # The Pages artifact is exactly the index file; it is served at
+      # /index.json on the project's custom domain (index.conduitdata.io).
+      # Stage into a directory first (B1, adversarial review): upload-pages-
+      # artifact chdir's into the artifact path and archives '.', so a single-
+      # file path fails at chdir — reproduced locally with both GNU and BSD
+      # tar. The verify step below runs the same chdir so a regression of the
+      # staging fails this job, not the post-merge deploy.
+      - name: Stage the index for the Pages artifact
         run: |
-          npm run typecheck
-          npm run lint
-
-      - name: Unit tests
-        run: npm test
-
-      # Hard gate: a tampered/stale/schema-too-new index/index.json exits
-      # non-zero here, no dist/ is produced, and every step below is skipped —
-      # the previously-deployed site stays live and untouched.
-      - name: Build site
-        env:
-          SCARF_API_TOKEN: ${{ secrets.SCARF_API_TOKEN }}
-        run: npm run build
-
-      - name: Install Playwright's Chromium (for the a11y scan only)
-        run: npx playwright install --with-deps chromium
-
-      - name: Accessibility scan (gates the deploy — zero critical/serious violations)
-        run: npm run axe
-
-      - uses: actions/upload-pages-artifact@v3
+          mkdir -p .pages
+          cp index/index.json .pages/index.json
+      - name: Verify the staged artifact archives (tar-chdir reproduction)
+        run: tar -cf /dev/null -C .pages .
+      - name: Upload the signed index as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: web/dist
+          path: .pages
+
+  # S1 (adversarial review): fetch the canonical host BEFORE deploy-pages
+  # publishes. A misconfigured host (missing DNS CNAME, Pages custom domain
+  # not set) must stop publication, not be discovered after the fact. This is
+  # structural, not byte-identical: the new publication legitimately differs
+  # from whatever the host currently serves. During the S6 transition window
+  # (infra steps pending) this fails closed by design — index.conduitdata.io
+  # does not resolve until the CNAME exists, and the previously-published
+  # index stays live.
+  preflight:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Canonical host must resolve and serve the index before we deploy
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-connrefused --max-time 30 \
+            https://index.conduitdata.io/index.json -o /tmp/canonical.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('/tmp/canonical.json'))
+          assert d.get('schemaVersion') == 1, 'unexpected schemaVersion on the live canonical index'
+          print('preflight: PASSED — index.conduitdata.io serves a schemaVersion==1 index')
+          PY
 
   deploy:
-    needs: build
+    needs: preflight
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -88,30 +113,74 @@ jobs:
   smoke:
     needs: deploy
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+      # Byte-compare the LIVE canonical URL against exactly what this run
+      # published — catches a broken deploy or a stale CDN cache (the same
+      # post-deploy smoke the old web deploy ran, now against the index host).
+      # Fail-closed by design: if index.conduitdata.io does not resolve (DNS
+      # record / Pages custom domain not yet configured — see the S6 PR body)
+      # this step fails loudly rather than passing a publish that nobody can
+      # reach at the canonical URL. Short retry loop for Pages/CDN settling on
+      # a freshly-deployed artifact; a real mismatch does not self-heal.
+      - name: Post-deploy smoke (byte-compare the live index)
+        run: |
+          set -euo pipefail
+          local_sha=$(sha256sum index/index.json | awk '{print $1}')
+          echo "local:  $local_sha  index/index.json"
+          live_sha=""
+          for attempt in 1 2 3; do
+            if live_sha=$(curl --fail --silent --show-error --max-time 30 \
+              https://index.conduitdata.io/index.json | sha256sum | awk '{print $1}'); then
+              break
+            fi
+            echo "fetch attempt $attempt failed — retrying in 5s"
+            sleep 5
+          done
+          if [ -z "$live_sha" ]; then
+            echo "::error::could not fetch https://index.conduitdata.io/index.json — is the" >&2
+            echo "::error::DNS record (CNAME -> conduitio.github.io) and the Pages custom domain" >&2
+            echo "::error::configured? See the S6 PR body for the exact steps." >&2
+            exit 1
+          fi
+          echo "live:   $live_sha  https://index.conduitdata.io/index.json"
+          if [ "$local_sha" != "$live_sha" ]; then
+            echo "::error::live index bytes do NOT match index/index.json — stale CDN or broken deploy" >&2
+            exit 1
+          fi
+          echo "smoke: PASSED — index.conduitdata.io/index.json byte-matches index/index.json"
 
-      - name: Install dependencies
-        run: npm ci
+  notify-ui:
+    needs: [deploy, smoke]
+    runs-on: ubuntu-latest
+    # Job-level env so the step's `if:` can read it (step-level env is not
+    # available to the step's own condition).
+    env:
+      DISPATCH_TOKEN: ${{ secrets.REGISTRY_UI_DISPATCH_TOKEN }}
+    steps:
+      # AC 4.11: rebuild the UI on every re-sign. The UI's deploy workflow
+      # listens for repository_dispatch(registry-index-updated). A repo-scoped
+      # GITHUB_TOKEN cannot dispatch to another repository, so this uses a PAT
+      # stored as REGISTRY_UI_DISPATCH_TOKEN in this repo's secrets; until it
+      # is provisioned the step is skipped (with a warning, S5) and the UI's
+      # daily cron is the rebuild backstop. Provision (S2, adversarial review:
+      # repository_dispatch is a write on the target repo — read-only tokens
+      # get 403): a fine-grained PAT on ConduitIO/conduit-registry-ui with
+      # Contents: Read and write, or a classic PAT with the `repo` scope.
+      # Manual fallback, documented in the S6 PR body:
+      # gh workflow run deploy.yml --repo ConduitIO/conduit-registry-ui
+      - name: Notify conduit-registry-ui of a fresh index
+        if: env.DISPATCH_TOKEN != ''
+        run: |
+          gh api -X POST repos/ConduitIO/conduit-registry-ui/dispatches \
+            -H "Authorization: Bearer $DISPATCH_TOKEN" \
+            -f event_type=registry-index-updated
+          echo "dispatched repository_dispatch(registry-index-updated) to conduit-registry-ui"
 
-      # Re-run the build locally in this job too, so dist/index.json (the
-      # thing we byte-compare the live site against) is the exact bytes this
-      # workflow run verified — never re-fetched, never re-derived.
-      - name: Rebuild (to get a local dist/index.json to compare against)
-        env:
-          SCARF_API_TOKEN: ${{ secrets.SCARF_API_TOKEN }}
-        run: npm run build
-
-      - name: Post-deploy smoke check (byte-compare /index.json, list-page marker)
-        env:
-          SITE_URL: ${{ env.SITE_URL }}
-        run: npm run smoke:deployed
+      - name: Warn when the dispatch token is missing (S5)
+        if: env.DISPATCH_TOKEN == ''
+        run: |
+          echo "::warning::REGISTRY_UI_DISPATCH_TOKEN is not set — repository_dispatch to" \
+            "conduit-registry-ui skipped. The UI refresh falls back to its 06:17 cron and" \
+            "manual dispatch: gh workflow run deploy.yml --repo ConduitIO/conduit-registry-ui."
