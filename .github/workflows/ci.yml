@@ -39,3 +39,15 @@ jobs:
 
       - name: Structural gate on the signed index
         run: python3 .github/scripts/index-gate.py
+
+      # B1 regression check (found in adversarial review): upload-pages-artifact
+      # chdir's into the artifact path and archives '.', so a single-file path
+      # makes every deploy fail. Reproduce the chdir here (tar refuses to chdir
+      # into a file, exactly like the action) so a regression of the staging
+      # fails CI instead of the post-merge deploy.
+      - name: Verify the Pages artifact archives (tar-chdir reproduction)
+        run: |
+          set -euo pipefail
+          mkdir -p .pages
+          cp index/index.json .pages/index.json
+          tar -cf /dev/null -C .pages .

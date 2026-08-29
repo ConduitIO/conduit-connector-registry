@@ -59,13 +59,48 @@ jobs:
 
       # The Pages artifact is exactly the index file; it is served at
       # /index.json on the project's custom domain (index.conduitdata.io).
+      # Stage into a directory first (B1, adversarial review): upload-pages-
+      # artifact chdir's into the artifact path and archives '.', so a single-
+      # file path fails at chdir — reproduced locally with both GNU and BSD
+      # tar. The verify step below runs the same chdir so a regression of the
+      # staging fails this job, not the post-merge deploy.
+      - name: Stage the index for the Pages artifact
+        run: |
+          mkdir -p .pages
+          cp index/index.json .pages/index.json
+      - name: Verify the staged artifact archives (tar-chdir reproduction)
+        run: tar -cf /dev/null -C .pages .
       - name: Upload the signed index as the Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: index/index.json
+          path: .pages
+
+  # S1 (adversarial review): fetch the canonical host BEFORE deploy-pages
+  # publishes. A misconfigured host (missing DNS CNAME, Pages custom domain
+  # not set) must stop publication, not be discovered after the fact. This is
+  # structural, not byte-identical: the new publication legitimately differs
+  # from whatever the host currently serves. During the S6 transition window
+  # (infra steps pending) this fails closed by design — index.conduitdata.io
+  # does not resolve until the CNAME exists, and the previously-published
+  # index stays live.
+  preflight:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Canonical host must resolve and serve the index before we deploy
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-connrefused --max-time 30 \
+            https://index.conduitdata.io/index.json -o /tmp/canonical.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('/tmp/canonical.json'))
+          assert d.get('schemaVersion') == 1, 'unexpected schemaVersion on the live canonical index'
+          print('preflight: PASSED — index.conduitdata.io serves a schemaVersion==1 index')
+          PY
 
   deploy:
-    needs: publish
+    needs: preflight
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -127,12 +162,14 @@ jobs:
       # AC 4.11: rebuild the UI on every re-sign. The UI's deploy workflow
       # listens for repository_dispatch(registry-index-updated). A repo-scoped
       # GITHUB_TOKEN cannot dispatch to another repository, so this uses a PAT
-      # (contents: write on ConduitIO) stored as REGISTRY_UI_DISPATCH_TOKEN in
-      # this repo's secrets; until it is provisioned the step is skipped and
-      # the UI's daily cron is the rebuild backstop. Provision: a fine-grained
-      # PAT on ConduitIO/conduit-registry-ui with Contents: Read, or a classic
-      # PAT with the `repo` scope. Manual fallback, documented in the S6 PR
-      # body: gh workflow run deploy.yml --repo ConduitIO/conduit-registry-ui
+      # stored as REGISTRY_UI_DISPATCH_TOKEN in this repo's secrets; until it
+      # is provisioned the step is skipped (with a warning, S5) and the UI's
+      # daily cron is the rebuild backstop. Provision (S2, adversarial review:
+      # repository_dispatch is a write on the target repo — read-only tokens
+      # get 403): a fine-grained PAT on ConduitIO/conduit-registry-ui with
+      # Contents: Read and write, or a classic PAT with the `repo` scope.
+      # Manual fallback, documented in the S6 PR body:
+      # gh workflow run deploy.yml --repo ConduitIO/conduit-registry-ui
       - name: Notify conduit-registry-ui of a fresh index
         if: env.DISPATCH_TOKEN != ''
         run: |
@@ -140,3 +177,10 @@ jobs:
             -H "Authorization: Bearer $DISPATCH_TOKEN" \
             -f event_type=registry-index-updated
           echo "dispatched repository_dispatch(registry-index-updated) to conduit-registry-ui"
+
+      - name: Warn when the dispatch token is missing (S5)
+        if: env.DISPATCH_TOKEN == ''
+        run: |
+          echo "::warning::REGISTRY_UI_DISPATCH_TOKEN is not set — repository_dispatch to" \
+            "conduit-registry-ui skipped. The UI refresh falls back to its 06:17 cron and" \
+            "manual dispatch: gh workflow run deploy.yml --repo ConduitIO/conduit-registry-ui."
