@@ -780,8 +780,8 @@
       }
     ],
     "index": {
-      "timestamp": "2026-09-05T21:08:35Z",
-      "version": 12
+      "timestamp": "2026-10-07T05:30:44Z",
+      "version": 13
     },
     "processors": [
       {
@@ -860,7 +860,7 @@
       "role": "root",
       "keyId": "sha256:d657c2717760931c3771ec151e88fc143642b5c73ce79a3665fbf0f37f009795",
       "algorithm": "ed25519",
-      "signature": "edKgT6dokThbEHKG4yZFxKT7vCGqJVFogYRJmD7Fegvq8Fd45VvO1YXpKNF7NSOjPOjyKP9PdKHp6ZknZJuEDQ=="
+      "signature": "dat3hxPWG27dXmcVhZl+hS/7PsMeNj3OMQpuypLxcnnF1LiiPvgaX91C30E9zzA5Gz5jvKg3FIrIUubgQ1tkAA=="
     }
   ]
 }
