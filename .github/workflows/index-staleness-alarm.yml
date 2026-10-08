@@ -29,10 +29,11 @@ name: index-staleness-alarm
 # job exists to tell them when to.
 #
 # maxAgeHours = 72h (3 days): comfortably inside the client's 168h (7-day)
-# refusal. Note the margin is a RANGE, not a number: this job samples once a
-# day, so crossing 72h is detected somewhere between 72h and 96h, leaving
-# 3-4 days before users see registry.index_stale. The worst case is the one
-# that matters, because the threshold below is justified on it.
+# refusal. The hourly quiet runs (see below) open the stale issue within an
+# hour of crossing 72h, leaving about 4 days before users see
+# registry.index_stale. Before those runs existed this job sampled once a day,
+# so the margin was 3-4 days; the threshold was justified on that worst case
+# and still holds.
 #
 # BE CLEAR ABOUT WHAT THIS IS: because nothing re-signs automatically, the
 # timestamp only moves when a human dispatches. So this alarm fires on a fixed
@@ -67,11 +68,36 @@ name: index-staleness-alarm
 # the CDN in front of registry.conduitdata.io has settled — checking too soon
 # after a legitimate re-sign risks a false alarm from propagation lag rather
 # than a real staleness problem.
+#
+# HOURLY ESCALATION RUNS. The 12:30 run above is the FULL run: it is the only
+# scheduled run that files fetch-failure/malformed issues or posts the plain
+# "still failing" comment. The other 23 hourly runs are QUIET: they act only
+# on a readable, known-age index, and write only when something changes: a new
+# stale issue (age crossed 72h), an @-mention escalation that is now due (120h,
+# 168h since the last root signature), a title change, or closing a resolved
+# issue. That makes "escalate at 120h/168h" accurate to the hour instead of to
+# the day, without multiplying the CDN-blip false positives the full run's
+# retry comment below accepts, or posting 24 comments a day.
 
 on:
   schedule:
+    # Keep this string in step with FULL_RUN_CRON in the filing step.
     - cron: '30 12 * * *'
-  workflow_dispatch: {}
+    - cron: '30 0-11,13-23 * * *'
+  workflow_dispatch:
+    inputs:
+      # Both inputs exist to exercise the alarm end to end without waiting for
+      # a real outage. Neither affects the scheduled run: DRY_RUN and the
+      # threshold override below only read them on workflow_dispatch, so a
+      # mis-evaluated expression can never silence the nightly alarm.
+      dry_run:
+        description: 'log the issue that would be filed/updated/closed, and make no writes'
+        type: boolean
+        default: false
+      max_age_hours:
+        description: 'override the 72h alarm threshold for this run (e.g. 0 to force the stale path)'
+        type: string
+        default: ''
 
 permissions:
   # No actions/checkout in this job — it only fetches a public URL and files an
@@ -81,7 +107,23 @@ permissions:
 
 env:
   INDEX_URL: https://registry.conduitdata.io/index.json
-  MAX_AGE_HOURS: '72'
+  MAX_AGE_HOURS: ${{ (github.event_name == 'workflow_dispatch' && inputs.max_age_hours != '') && inputs.max_age_hours || '72' }}
+  # The shipped client's refusal point (pkg/registry/index/freeze.go
+  # DefaultMaxStaleness = 168h). The issue title carries signed timestamp +
+  # this, as an absolute UTC time, so the deadline is readable from a
+  # notification without opening anything.
+  CLIENT_MAX_AGE_HOURS: '168'
+  # Escalations since the last root signature, each posted exactly once per
+  # incident as an @-mention: at ESCALATE_AGE_HOURS (48h before the cliff) and
+  # at CLIENT_MAX_AGE_HOURS (installs are failing). Plain comments are not
+  # enough: #33 collected a comment a day for ~25 days of broken installs.
+  ESCALATE_AGE_HOURS: '120'
+  # The maintainer the issue is assigned to and @-mentioned. Assignment and
+  # mentions are what reach email/mobile; comments on a watched issue did not.
+  # devarismeroxa is the sole required reviewer on `registry-signing`, i.e. the
+  # only person who can approve the root re-sign this issue asks for.
+  MAINTAINER: devarismeroxa
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
 
 # A dispatch landing during the 12:30 run would otherwise give two runs that
 # both see zero open bot issues and both file one. The filing step only ever
@@ -134,13 +176,19 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          python3 - "${MAX_AGE_HOURS:-72}" <<'PYEOF'
+          python3 - "${MAX_AGE_HOURS:-72}" "${CLIENT_MAX_AGE_HOURS:-168}" <<'PYEOF'
           import json
           import os
           import sys
-          from datetime import datetime, timezone
+          from datetime import datetime, timedelta, timezone
 
-          max_age_hours = float(sys.argv[1])
+          try:
+              max_age_hours = float(sys.argv[1])
+              client_max_age_hours = float(sys.argv[2])
+          except ValueError as err:
+              # Only reachable through a bad workflow_dispatch max_age_hours.
+              print(f"::error::alarm threshold is not a number: {err}")
+              sys.exit(1)
 
           def emit(**kv):
               # GITHUB_OUTPUT is read from the environment, not shell-interpolated
@@ -236,7 +284,8 @@ jobs:
                   )
           except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as err:
               print(f"MALFORMED: could not read index.timestamp: {type(err).__name__}: {err}")
-              emit(malformed="true", age_hours="unknown", timestamp="unknown", version="unknown")
+              emit(malformed="true", age_hours="unknown", timestamp="unknown", version="unknown",
+                   expires_at="unknown")
               sys.exit(1)
 
           now = datetime.now(timezone.utc)
@@ -252,7 +301,8 @@ jobs:
           clock_skew_tolerance_hours = 1.0 / 60.0
           if age_hours < -clock_skew_tolerance_hours:
               print(f"MALFORMED: index.timestamp {ts_raw} is in the future ({age_hours:.1f}h)")
-              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
+              emit(malformed="true", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw,
+                   expires_at="unknown")
               sys.exit(1)
 
           print(f"index.timestamp = {ts_raw}")
@@ -263,7 +313,12 @@ jobs:
           # there is no honest value for it — a document whose timestamp cannot
           # be read is not "stale", it is unreadable. The step's exit status and
           # `malformed` carry everything the issue step branches on.
-          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw)
+          # When the shipped client starts refusing this exact document. Same
+          # strict format as the signer's timestamp, so it reads as UTC.
+          expires_at = (ts + timedelta(hours=client_max_age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+          print(f"client refuses this index from {expires_at}")
+          emit(malformed="false", age_hours=f"{age_hours:.1f}", timestamp=ts_raw, version=ver_raw,
+               expires_at=expires_at)
 
           if age_hours > max_age_hours:
               sys.exit(1)
@@ -276,6 +331,7 @@ jobs:
           AGE_HOURS: ${{ steps.check.outputs.age_hours }}
           INDEX_TS: ${{ steps.check.outputs.timestamp }}
           INDEX_VERSION: ${{ steps.check.outputs.version }}
+          EXPIRES_AT: ${{ steps.check.outputs.expires_at }}
           MALFORMED: ${{ steps.check.outputs.malformed }}
           MAX_AGE_HOURS: ${{ env.MAX_AGE_HOURS }}
           INDEX_URL: ${{ env.INDEX_URL }}
@@ -301,7 +357,24 @@ jobs:
                 ? 'registry freshness check failed to run — freshness is UNKNOWN'
                 : malformed
                   ? 'registry index is unreadable — cannot determine freshness'
-                  : 'registry index is going stale — install will start failing';
+                  : null;
+
+            // Stale branch: put the absolute deadline in the title, so a
+            // notification alone says when installs break. It is derived from
+            // the signed timestamp, so it is stable for the whole incident and
+            // changes only when someone re-signs.
+            const maintainer = process.env.MAINTAINER;
+            const dryRun = process.env.DRY_RUN === 'true';
+            const ageHours = Number.parseFloat(process.env.AGE_HOURS);
+            const clientMaxAgeHours = Number(process.env.CLIENT_MAX_AGE_HOURS);
+            const escalateAgeHours = Number(process.env.ESCALATE_AGE_HOURS);
+            const expiresAt = process.env.EXPIRES_AT || 'unknown';
+            const ageKnown = !fetchFailed && reported && !malformed && Number.isFinite(ageHours);
+            const pastCliff = ageKnown && ageHours >= clientMaxAgeHours;
+            const staleTitle = pastCliff
+              ? `registry index went stale at ${expiresAt} (UTC) — installs are failing`
+              : `registry index goes stale at ${expiresAt} (UTC) — install will start failing`;
+            const issueTitle = title ?? staleTitle;
 
             let body;
             if (noReport) {
@@ -401,30 +474,103 @@ jobs:
               per_page: 100,
             });
             const ours = existing.filter(isOurs);
+
+            // Escalation levels since the last root signature. Each is posted
+            // ONCE per incident, as an @-mention, tracked by an HTML-comment
+            // marker in the issue body or a comment, so a daily run between
+            // escalations adds a plain comment, not another ping.
+            const levels = [];
+            if (ageKnown && ageHours >= escalateAgeHours) levels.push(escalateAgeHours);
+            if (pastCliff) levels.push(clientMaxAgeHours);
+            const marker = (h) => `<!-- index-staleness-escalation:${h} -->`;
+            const mentionFor = (h) => h >= clientMaxAgeHours
+              ? `@${maintainer} the registry index went stale at ${expiresAt} (UTC). ` +
+                'Every `conduit connectors install` is failing now. Root re-sign required.'
+              : `@${maintainer} ${Math.round(clientMaxAgeHours - ageHours)}h left: the registry index goes ` +
+                `stale at ${expiresAt} (UTC). Root re-sign now.`;
+            const openMention = ageKnown
+              ? `@${maintainer} the registry index needs a root re-sign. It goes stale at ${expiresAt} (UTC); ` +
+                'installs fail after that.'
+              : `@${maintainer} the registry freshness alarm fired: ${issueTitle}.`;
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // See "HOURLY ESCALATION RUNS" in the header. Dispatches count as
+            // full runs, so a manual run always reports.
+            const FULL_RUN_CRON = '30 12 * * *';
+            const quietRun = context.eventName === 'schedule' && context.payload.schedule !== FULL_RUN_CRON;
+            if (quietRun && !ageKnown) {
+              core.warning(`quiet run: ${issueTitle}; leaving it to the 12:30 UTC full run to report`);
+              return;
+            }
+
+            // Assignment is best-effort: if it fails (say the handle lost repo
+            // access), the mention still notifies and the job is already red.
+            // It must never stop the issue or comment from being written.
+            const assign = async (issueNumber) => {
+              try {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number: issueNumber, assignees: [maintainer] });
+              } catch (err) {
+                core.warning(`could not assign ${maintainer} to #${issueNumber}: ${err.message}`);
+              }
+            };
+
             if (ours.length > 0) {
+              const issue = ours[0];
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: issue.number, per_page: 100,
+              });
+              const seen = [issue.body || '', ...comments.map((c) => c.body || '')].join('\n');
+              const due = levels.filter((h) => !seen.includes(marker(h)));
+              const top = due.length > 0 ? Math.max(...due) : null;
+              const head = top !== null
+                ? `${mentionFor(top)}\n${due.map(marker).join('\n')}`
+                : 'Still failing as of this run.';
+              const comment = `${head}\n\n${body}`;
+              if (quietRun && top === null) {
+                // Nothing new to say. Only keep the title truthful.
+                if (issue.title !== issueTitle && !dryRun) {
+                  await github.rest.issues.update({ owner, repo, issue_number: issue.number, title: issueTitle });
+                }
+                core.info(`quiet run: no escalation due on #${issue.number}`);
+                return;
+              }
+              if (dryRun) {
+                core.notice(`[dry run] would update #${issue.number}: title=${JSON.stringify(issueTitle)}, ` +
+                  `assign=${maintainer}, escalation=${top ?? 'none'}`);
+                core.info(`[dry run] comment:\n${comment}`);
+                return;
+              }
               // The outcome class can change between runs (stale -> malformed,
-              // say). Update the title too, or the issue keeps a heading that
-              // contradicts its own newest comment.
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: ours[0].number,
-                title,
-              });
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: ours[0].number,
-                body: `Still failing as of this run.\n\n${body}`,
-              });
+              // say), and the deadline moves on a re-sign. Update the title too,
+              // or the issue keeps a heading that contradicts its newest comment.
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, title: issueTitle });
+              await assign(issue.number);
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: comment });
             } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['index-staleness'],
+              // Mark every level already reached as done, so an issue opened
+              // late (say after a fetch outage) pings once, not three times.
+              const top = levels.length > 0 ? Math.max(...levels) : null;
+              const head = top !== null ? mentionFor(top) : openMention;
+              const issueBody = `${head}\n${levels.map(marker).join('\n')}\n\n${body}`;
+              if (dryRun) {
+                core.notice(`[dry run] would open an issue: title=${JSON.stringify(issueTitle)}, ` +
+                  `assign=${maintainer}, escalation=${top ?? 'open'}`);
+                core.info(`[dry run] body:\n${issueBody}`);
+                return;
+              }
+              const create = (extra) => github.rest.issues.create({
+                owner, repo, title: issueTitle, body: issueBody, labels: ['index-staleness'], ...extra,
               });
+              try {
+                await create({ assignees: [maintainer] });
+              } catch (err) {
+                // An invalid assignee fails the whole create call. Retry without
+                // it so the incident is still filed; the mention still notifies.
+                core.warning(`issue create with assignee failed (${err.message}); retrying without assignee`);
+                await create({});
+              }
             }
 
       - name: Close the staleness issue once resolved
@@ -444,6 +590,10 @@ jobs:
               per_page: 100,
             });
             const ours = existing.filter((i) => !i.pull_request && i.user?.login === 'github-actions[bot]');
+            if (process.env.DRY_RUN === 'true') {
+              core.notice(`[dry run] would close: ${ours.map((i) => '#' + i.number).join(', ') || 'nothing'}`);
+              return;
+            }
             for (const issue of ours) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
