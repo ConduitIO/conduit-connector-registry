@@ -1,0 +1,69 @@
+{
+  "name": "marketo",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-marketo",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-marketo/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.1",
+      "releasedAt": "2026-10-09T01:02:35Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_linux_amd64.tar.gz",
+          "sha256": "19112e0c55cab8d3d6b62cbf700757da2aa987b556adbb9cdcaf9a0c35bb81fe",
+          "size": 6357037,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_linux_arm64.tar.gz",
+          "sha256": "9d2e1aa622df0bd89cc543ace0efc06a98b7cf010262c515eca9d85a01ebe1f1",
+          "size": 5813997,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_darwin_amd64.tar.gz",
+          "sha256": "c1dd84f5396184f532a181161b9ee6a81a80a95b56fdc07c99a374da6a383f72",
+          "size": 6520254,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_darwin_arm64.tar.gz",
+          "sha256": "119921702723aa95fb3928c35134d7978cbd698b965751f5bbdd0b8048f5ba09",
+          "size": 6105442,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/marketo_v0.3.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-marketo/releases/download/v0.3.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}
