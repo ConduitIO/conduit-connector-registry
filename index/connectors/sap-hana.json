@@ -1,0 +1,69 @@
+{
+  "name": "sap-hana",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-sap-hana",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-sap-hana/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-08T23:47:45Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "85aa720ab7d798ccc1a13b3525f63f52b6818c4ea39e2c3aba9dd1e0dad0f470",
+          "size": 6798212,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "0db56fce64010365fa4d5bcd47db88f3274081ff28a1c877841f2a6695738ee5",
+          "size": 6209269,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "28583c958b598db5248e3ea6fb0f3268d51cc8f1c6e61915c32019520229dfcf",
+          "size": 6970668,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "0d4787bc164f8dc7ee8de72019007d9b231b123a7ebf4385822bb829126a7e36",
+          "size": 6524781,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/sap-hana_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sap-hana/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

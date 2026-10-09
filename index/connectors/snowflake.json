@@ -1,0 +1,69 @@
+{
+  "name": "snowflake",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-snowflake",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-snowflake/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.4.1",
+      "releasedAt": "2026-10-08T23:52:18Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_linux_amd64.tar.gz",
+          "sha256": "985cbdf2c7f4718890089dd0629b840388220d78b9baa280871225f9a03654bb",
+          "size": 14630975,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_linux_arm64.tar.gz",
+          "sha256": "551e09dcefbd256797eb7b2ff184d757040aeb01874aef7ac6a421d52ed506ea",
+          "size": 12945633,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_darwin_amd64.tar.gz",
+          "sha256": "7fce9d1961b20f4de83f40d0a6fa66d8bf215e1b2e6be936b53fc03cbd02aec7",
+          "size": 14966635,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_darwin_arm64.tar.gz",
+          "sha256": "ee3ec0556bb60f3376ff8579f9a108d83fa8c7d115a804db58c96c6d463e492e",
+          "size": 13488680,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/snowflake_v0.4.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-snowflake/releases/download/v0.4.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

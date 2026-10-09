@@ -1,0 +1,69 @@
+{
+  "name": "activemq-artemis",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-activemq-artemis/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.2",
+      "releasedAt": "2026-10-08T22:41:17Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_linux_amd64.tar.gz",
+          "sha256": "4a539f54c028a024ebf10e1d470a8aff4880b069bffc3c6fbdae5beeb9a81056",
+          "size": 6686417,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_linux_arm64.tar.gz",
+          "sha256": "03b3e1c72abf9be316d72fb00a675cef8d0883961d998ccfddcfb9cc7a72efd7",
+          "size": 6112818,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_darwin_amd64.tar.gz",
+          "sha256": "9893c3cccb9058b2b64e1cb33e2e9149960c6b39aa41275e024b2126340a37db",
+          "size": 6857751,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_darwin_arm64.tar.gz",
+          "sha256": "2dd77f3ebd855ba4bdfecc533593413657905398069b8b043ed683d0576fa0b2",
+          "size": 6416054,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/activemq-artemis_v0.1.2_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-activemq-artemis/releases/download/v0.1.2/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

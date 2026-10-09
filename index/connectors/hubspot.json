@@ -1,0 +1,69 @@
+{
+  "name": "hubspot",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-hubspot",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-hubspot/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-08T23:04:44Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "e4b486f6b5a0466f8aec4e9a9fcdc0e6800879c64afc7b66343db1f52ebe09c5",
+          "size": 6867313,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "a92751ef41f1583e21db1650c53da068ea67ffb37a7994889d2a9bce4d159d53",
+          "size": 6288841,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "b19d7a64f2a155b3fded46f381885b0efcac88b5a1d6e29c8736a9c30664de8f",
+          "size": 7046025,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "315eb7002beffafb5e9a553609d6f9c53d5be38bf03524f179f2c4f35ff859bc",
+          "size": 6609595,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/hubspot_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-hubspot/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

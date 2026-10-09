@@ -1,0 +1,69 @@
+{
+  "name": "google-sheets",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-google-sheets",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-google-sheets/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.1",
+      "releasedAt": "2026-10-08T23:00:09Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_linux_amd64.tar.gz",
+          "sha256": "dfd9e583b2de9dff4be2a1e86766bd767a0505ab8bb2ecdc6063b613b079f046",
+          "size": 7417704,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_linux_arm64.tar.gz",
+          "sha256": "9f59cebf5ba8e84fdf679870e44f9bd3c7fe342f5307be515d12f456272d5ec2",
+          "size": 6802285,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_darwin_amd64.tar.gz",
+          "sha256": "4508cda0331a0c50208097bb33560c8db659ee60c310662e63c96be0ad32949a",
+          "size": 7610930,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_darwin_arm64.tar.gz",
+          "sha256": "0b7ea0cc38f5496840fb8ee36fb13bc9551ace5184a52dead4c4c43dab4b7b03",
+          "size": 7150201,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/google-sheets_v0.3.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-google-sheets/releases/download/v0.3.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "name": "clickhouse",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-clickhouse",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-clickhouse/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-08T22:50:59Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "20e94ae2f516a79228425e148423342b3c7b0c0eae0dd7eca6bcd82f94394eff",
+          "size": 8836818,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "ce3b1e42c467dcf729f5b14eda38b3eae259db97f3a10f17d81b0879efcc2cea",
+          "size": 8091649,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "fa455ca425e441f4914911dcc893684919af69344c9de795bf24cc345da2c919",
+          "size": 9054713,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "7a48efcfce9d43b61067b491221801ae26e3059de81af1bb9820d2463509d5df",
+          "size": 8501132,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/clickhouse_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-clickhouse/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

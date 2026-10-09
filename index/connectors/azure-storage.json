@@ -1,0 +1,69 @@
+{
+  "name": "azure-storage",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-azure-storage",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-azure-storage/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.4.2",
+      "releasedAt": "2026-10-09T00:22:38Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_linux_amd64.tar.gz",
+          "sha256": "ddc329c66cd58afe33eb641f1f008c8d7e6e4fadde56554d76d73133e45ecc97",
+          "size": 6961712,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_linux_arm64.tar.gz",
+          "sha256": "4dcf2c106db63481dce3fe31e39ab3c39a645bfd598adb64599874fb42c4ffd2",
+          "size": 6348637,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_darwin_amd64.tar.gz",
+          "sha256": "0587a7238fe0c6b916358665fac8b7ade6484b3e0b78e04b420d2c0e16028c39",
+          "size": 7144104,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_darwin_arm64.tar.gz",
+          "sha256": "444906c8fa6c2e6531d356b4a170bff1e5c478981a08c7366669fe80980e1ea3",
+          "size": 6672338,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/azure-storage_v0.4.2_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-azure-storage/releases/download/v0.4.2/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

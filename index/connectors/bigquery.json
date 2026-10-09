@@ -1,0 +1,69 @@
+{
+  "name": "bigquery",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-bigquery",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-bigquery/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.1",
+      "releasedAt": "2026-10-08T22:45:47Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_linux_amd64.tar.gz",
+          "sha256": "44bca9e8198226558ab7b604b1edee49f8b8df56c750253093bcfa73669d83af",
+          "size": 9026669,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_linux_arm64.tar.gz",
+          "sha256": "d2fc389baa0b0937d2566ad29e57e447339991ba4bd1cc60d6763ace1617785c",
+          "size": 8251974,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_darwin_amd64.tar.gz",
+          "sha256": "57e1bfee7e33f75e44f6c2d4e270955b535938e0938ef99c78f4a61981ad4818",
+          "size": 9253185,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_darwin_arm64.tar.gz",
+          "sha256": "83396780fef4d93de07ecc0abb96c1951867ba2649f9bd7d82c35cf71f302e43",
+          "size": 8675224,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/bigquery_v0.3.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-bigquery/releases/download/v0.3.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "name": "sql-server",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-sql-server",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-sql-server/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-08T23:58:44Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "fb71b1a4e3cb82657b0390f751492500ce1d02219df1ceb8344e554fa6d6105b",
+          "size": 6887300,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "3792859196989107cb58f2d388a1581e9ecf597aec81b8e52a6fe6dfa2bdc65f",
+          "size": 6303295,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "ed4d9b23c27387f345108e48e81ba95f6fc68cf39c48a24e7936708b07744c16",
+          "size": 7057275,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "980dad7b0418bb64d762e42b858be881d7c62554cd0616e1bf91cddbb0fdd981",
+          "size": 6621008,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/sql-server_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-sql-server/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

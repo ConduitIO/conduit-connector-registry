@@ -1,0 +1,69 @@
+{
+  "name": "nats-jetstream",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-nats-jetstream/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.2",
+      "releasedAt": "2026-10-08T23:23:56Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_linux_amd64.tar.gz",
+          "sha256": "16568dbfab38c04cab1beeeebe6399cba4ae5c05d7cefbd685723468205d027a",
+          "size": 6605664,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_linux_arm64.tar.gz",
+          "sha256": "8ba8bdf5333e3cec639c3cdce91eeea793a76eb8fe8239cbe9c29b24f2b91b70",
+          "size": 6031786,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_darwin_amd64.tar.gz",
+          "sha256": "55ffed26339b6791e835a7e1c9251f6633edae39042081b8d0ec4c827f227f20",
+          "size": 6775643,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_darwin_arm64.tar.gz",
+          "sha256": "bb9fb50bbd965302dd4e4ef1169f1059bb5b3931488bc05080888e743dd1c2bc",
+          "size": 6339114,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/nats-jetstream_v0.3.2_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-nats-jetstream/releases/download/v0.3.2/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

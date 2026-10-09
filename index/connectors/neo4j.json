@@ -1,0 +1,69 @@
+{
+  "name": "neo4j",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-neo4j",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-neo4j/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-08T23:32:53Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "19c5af4cf78d61d427b7367bfde50de4519c93e898610d40d8a6ea2b06c17bbd",
+          "size": 6484762,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "77315172e9e5941d9b0cff692ba0cfe897f31baff72701c72fdca7089f513175",
+          "size": 5920159,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "97a116381e100b75fdaa9204e9fca811240137e25fcd108472827dc7195c3bfe",
+          "size": 6650236,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "12bf98c92c842e2a23d6d440556560fd710efc0b03389be679b19c0635374c69",
+          "size": 6222838,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/neo4j_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-neo4j/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

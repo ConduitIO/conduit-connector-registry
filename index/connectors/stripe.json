@@ -1,0 +1,69 @@
+{
+  "name": "stripe",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-stripe",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-stripe/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.1",
+      "releasedAt": "2026-10-09T00:08:00Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_linux_amd64.tar.gz",
+          "sha256": "30ad452e1a4520ceea200d4e2ce549b3db80c3dc7b882f602b2a2eddfac3a534",
+          "size": 6455346,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_linux_arm64.tar.gz",
+          "sha256": "fe0725e9788054747053d866a4517eadad8e8a2ed4078687ed24eabbe46482ff",
+          "size": 5903979,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_darwin_amd64.tar.gz",
+          "sha256": "25035008b4c0da75a9e726bdd780fb326fac7f5a91a77b0e41220eacdc614108",
+          "size": 6622298,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_darwin_arm64.tar.gz",
+          "sha256": "d3dbcfe48ed1905be830268694cbf69181a3b14909204775182e77dd2e0c7598",
+          "size": 6205002,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/stripe_v0.3.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-stripe/releases/download/v0.3.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}
