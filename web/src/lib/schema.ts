@@ -65,11 +65,20 @@ export interface Publisher {
   revoked?: Revocation;
 }
 
+/**
+ * Registry support classification (`$defs/tier`). Optional and informational:
+ * set by registry maintainers, never read by any verification decision.
+ */
+export type Tier = 'certified' | 'verified' | 'adapter' | 'community';
+
 export interface Connector {
   name: string;
   displayName?: string;
   description?: string;
   repository?: string;
+  /** SPDX license identifier or expression of the source. Optional, informational. */
+  license?: string;
+  tier?: Tier;
   publisher: Publisher;
   versions: ConnectorVersion[];
 }
