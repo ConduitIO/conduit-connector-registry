@@ -112,6 +112,41 @@ class ValidateEntriesTest(unittest.TestCase):
         self.edit("ci/spec-names.json", lambda m: m.update(gone="gone"))
         self.assert_fails("'gone' has no entry in index/connectors")
 
+    def test_identity_pattern_any_workflow(self):
+        # Anchored to the repository but not to publish.yml at a tag: any
+        # workflow or branch in the repo could then sign.
+        self.edit("connectors/sqs.json", lambda d: d["publisher"].update(
+            expectedIdentityPattern=r"^https://github\.com/conduitio-labs/conduit-connector-sqs/.*$"))
+        self.assert_fails(r"must start with ^https://github\.com/conduitio-labs/conduit-connector-sqs/\.github/workflows/publish\.yml@refs/tags/")
+
+    def test_owner_not_allowlisted(self):
+        # Fully self-consistent entry from another owner: repository, identity
+        # and URLs all agree, so only the allowlist can catch it.
+        def f(d):
+            text = json.dumps(d).replace("conduitio-labs", "someone-else")
+            d.clear()
+            d.update(json.loads(text))
+        self.edit("connectors/sqs.json", f)
+        self.assert_fails("with owner in ['ConduitIO', 'conduitio-labs']")
+
+    def test_dot_dot_segment_in_url(self):
+        def f(d):
+            a = d["versions"][0]["artifacts"][0]
+            a["url"] = a["url"].replace("/releases/download/v0.3.1/", "/releases/download/v0.3.1/../../../../evil/repo/releases/download/x/")
+        self.edit("connectors/sqs.json", f)
+        self.assert_fails("must not contain '.' or '..' path segments")
+
+    def test_encoded_dot_dot_segment_in_url(self):
+        def f(d):
+            a = d["versions"][0]["artifacts"][0]
+            a["signature"]["bundleURL"] = a["signature"]["bundleURL"].replace("/v0.3.1/", "/v0.3.1/%2E%2e/")
+        self.edit("connectors/sqs.json", f)
+        self.assert_fails("must not contain '.' or '..' path segments")
+
+    def test_spec_name_collision_with_dict_value(self):
+        self.edit("ci/spec-names.json", lambda m: m.update(sqs={"spec": "redis", "specSource": "spec.go"}))
+        self.assert_fails("spec name 'redis' is shared by ['redis', 'sqs']")
+
 
 if __name__ == "__main__":
     unittest.main()

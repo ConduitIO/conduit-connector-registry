@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the registry index source files before they are signed.
+r"""Validate the registry index source files before they are signed.
 
 index-sign copies index/connectors/*.json and index/processors/*.json into the
 signed index as raw JSON without checking them, and the web build checks only
@@ -13,12 +13,17 @@ Checks:
   the whole schema, with format checking (uri, date-time) required to be active;
 - layout: both entry directories exist and are non-empty, file names match entry
   names, names are unique;
-- trust lints: publisher.expectedOIDCIssuer is the GitHub Actions issuer,
-  publisher.expectedIdentityPattern is anchored to the entry's own repository,
-  every artifact, signature and provenance URL is under that repository's
-  releases, and versions is non-empty;
+- trust lints: the repository owner is allowlisted (ConduitIO,
+  conduitio-labs); publisher.expectedOIDCIssuer is the GitHub Actions issuer;
+  publisher.expectedIdentityPattern starts with exactly
+  ^https://github\.com/<owner>/<repo>/\.github/workflows/publish\.yml@refs/tags/
+  for the entry's own repository; every artifact, signature and provenance URL
+  is under that repository's releases and has no '.' or '..' path segment;
+  versions is non-empty;
 - spec names: every connector has an entry in ci/spec-names.json and no two
-  connectors share a spec name.
+  connectors share a spec name. Whether each recorded name is the one the
+  release actually reports is checked by check_spec_names.py, which needs the
+  network and runs as its own step.
 
 Exit status is non-zero if anything fails; every failure is printed.
 """
@@ -33,6 +38,9 @@ import jsonschema
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 GITHUB_ISSUER = "https://token.actions.githubusercontent.com"
 REPO_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)$")
+# GitHub organizations whose repositories may be listed. A new owner is a
+# deliberate, reviewed change to this line, not something an entry can bring.
+ALLOWED_OWNERS = frozenset({"ConduitIO", "conduitio-labs"})
 
 
 def format_checker(cls):
@@ -64,18 +72,41 @@ def esc(part):
     return part.replace(".", r"\.")
 
 
+def repo_of(entry):
+    """(owner, repo) of an entry's repository, or None if it is malformed or not allowlisted."""
+    m = REPO_RE.match(entry.get("repository") or "")
+    if not m or m.group(1) not in ALLOWED_OWNERS or m.group(2) in (".", ".."):
+        return None
+    return m.groups()
+
+
+def has_dot_segment(url):
+    """True if the URL path has a '.' or '..' segment, literally or percent-encoded."""
+    path = str(url).split("?", 1)[0].split("#", 1)[0]
+    segments = path.split("/")[3:]  # after scheme:, '', host
+    return any(seg.lower().replace("%2e", ".") in (".", "..") for seg in segments)
+
+
+def spec_name(value):
+    """spec-names.json values are a spec name, or {"spec": name, "specSource": path}."""
+    return value["spec"] if isinstance(value, dict) else value
+
+
 def trust_lints(rel, entry, kind):
     """Checks the schema cannot express: identity, issuer and URLs tied to the repo."""
     out = []
     repo = entry.get("repository")
-    m = REPO_RE.match(repo or "")
-    if not m:
-        return [f"{rel}: repository must be https://github.com/<owner>/<repo>, got {repo!r}"]
-    owner, name = m.groups()
+    parts = repo_of(entry)
+    if not parts:
+        return [
+            f"{rel}: repository must be https://github.com/<owner>/<repo> with owner in "
+            f"{sorted(ALLOWED_OWNERS)}, got {repo!r}"
+        ]
+    owner, name = parts
     pub = entry.get("publisher") or {}
     if pub.get("expectedOIDCIssuer") != GITHUB_ISSUER:
         out.append(f"{rel}: publisher.expectedOIDCIssuer must be {GITHUB_ISSUER}")
-    prefix = rf"^https://github\.com/{esc(owner)}/{esc(name)}/"
+    prefix = rf"^https://github\.com/{esc(owner)}/{esc(name)}/\.github/workflows/publish\.yml@refs/tags/"
     if not str(pub.get("expectedIdentityPattern", "")).startswith(prefix):
         out.append(f"{rel}: publisher.expectedIdentityPattern must start with {prefix}")
     versions = entry.get("versions") or []
@@ -92,6 +123,8 @@ def trust_lints(rel, entry, kind):
         for field, url in urls:
             if url is not None and not str(url).startswith(base):
                 out.append(f"{rel}: versions[{i}] {field} must be under {base}, got {url!r}")
+            elif url is not None and has_dot_segment(url):
+                out.append(f"{rel}: versions[{i}] {field} must not contain '.' or '..' path segments, got {url!r}")
     return out
 
 
@@ -138,8 +171,8 @@ def main():
                 if name not in seen:
                     failures.append(f"index/ci/spec-names.json: {name!r} has no entry in index/connectors")
             by_spec = {}
-            for name, spec in spec_names.items():
-                by_spec.setdefault(spec, []).append(name)
+            for name, value in spec_names.items():
+                by_spec.setdefault(spec_name(value), []).append(name)
             for spec, names in sorted(by_spec.items()):
                 if len(names) > 1:
                     failures.append(f"index/ci/spec-names.json: spec name {spec!r} is shared by {sorted(names)}")
