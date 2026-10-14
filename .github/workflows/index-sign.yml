@@ -6,8 +6,26 @@ name: index-sign
 #
 # Root-key uses stay workflow_dispatch ONLY: every use of the root key is a
 # deliberate, gated action (environment: registry-signing, required reviewer =
-# maintainer). A manual dispatch's signed-index commit can never re-trigger
-# this workflow — no loop (pushes made with GITHUB_TOKEN don't fire Actions).
+# maintainer). The signed-index commit can never re-trigger this workflow: it
+# has no push trigger, so the push below cannot loop.
+#
+# HOW THE PUSH TO main IS AUTHORIZED. main is protected by a ruleset that
+# requires pull requests. The only actor allowed to bypass it is the repository
+# deploy key `registry-sign-deploy` (write access, bypass_mode always). The
+# private half lives in the `registry-signing` Environment as
+# REGISTRY_DEPLOY_KEY, so it is released only to this gated job, only on main,
+# and only after the required-reviewer approval. It is exposed to the push step
+# alone: checkout runs with persist-credentials: false and the key is loaded
+# into an ssh-agent held in memory, never written to disk and never placed in
+# git config. GITHUB_TOKEN can no longer push to main and is read-only for
+# contents.
+#
+# A push made with a deploy key, unlike one made with GITHUB_TOKEN, DOES
+# trigger workflows. For the signed-index commit (touches index/index.json
+# only) that means ci.yml and deploy.yml run on push to main. deploy.yml is
+# also dispatched explicitly below; the duplicate is harmless (same
+# `pages-deploy` concurrency group, same inputs). go-ci.yml does not match the
+# paths. No workflow that triggers on push can re-run index-sign.
 #
 # WHY THERE IS NO SCHEDULED HEARTBEAT HERE, AND WHY `freshness` CANNOT SIGN
 # THE PUBLISHED INDEX.
@@ -104,7 +122,7 @@ on:
         options: [root]
         default: root
 permissions:
-  contents: write
+  contents: read   # push to main is done with the deploy key, not GITHUB_TOKEN
   actions: write   # dispatch deploy.yml after committing the re-signed index
 
 concurrency:
@@ -125,9 +143,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: registry-signing
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # No token is left in .git/config. The push authenticates with the
+          # deploy key in the push step only.
+          persist-credentials: false
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: 'go.mod'
 
@@ -169,9 +191,10 @@ jobs:
           ARGS+=(-assemble-from index/connectors -assemble-processors-from index/processors -timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
           /tmp/index-sign "${ARGS[@]}"
 
-      - name: Commit + push the signed index (if changed)
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Three steps on purpose: the deploy key exists only in the environment of
+      # the push step, so git config/add/commit and the dispatch never see it.
+      - name: Commit the signed index (if changed)
+        id: commit
         run: |
           set -euo pipefail
           if git diff --quiet -- index/index.json; then
@@ -181,16 +204,66 @@ jobs:
             # honest no-op rather than an assertion, since a signer change could
             # make it reachable and a hard failure here would be confusing.
             echo "index/index.json unchanged after signing — nothing to commit (deterministic ed25519 over an unchanged payload)."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "conduit-registry-signer[bot]"
           git config user.email "registry-signer@conduitdata.io"
           git add index/index.json
           git commit -m "chore(index): root-sign index/index.json"
-          git push origin HEAD:main
-          # GitHub does NOT trigger workflows for pushes made with GITHUB_TOKEN
-          # (loop prevention), so deploy.yml won't fire on this commit — dispatch
-          # it explicitly so the re-signed index actually gets served.
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push the signed index to main
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          # The only step that receives the deploy key. It is loaded into an
+          # in-memory ssh-agent and unset from the shell before git runs.
+          REGISTRY_DEPLOY_KEY: ${{ secrets.REGISTRY_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$REGISTRY_DEPLOY_KEY" ]; then
+            echo "::error::REGISTRY_DEPLOY_KEY is empty in the registry-signing Environment; cannot push to main" >&2
+            exit 1
+          fi
+          umask 077
+          # GitHub's published SSH host keys (https://api.github.com/meta,
+          # .ssh_keys), pinned here. Never ssh-keyscan at runtime: that would
+          # trust whatever answers. Verification is strict with no global
+          # fallback, so a changed host key fails the push instead of being
+          # accepted. If GitHub rotates its keys, update this block.
+          KNOWN_HOSTS="$RUNNER_TEMP/github_known_hosts"
+          cat > "$KNOWN_HOSTS" <<'KEYS'
+          github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+          github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+          KEYS
+          eval "$(ssh-agent -s)" > /dev/null
+          trap 'ssh-agent -k > /dev/null 2>&1 || true' EXIT
+          # printf is a shell builtin, so the key never appears in an argv.
+          # Fixed message on failure: ssh-add's own output is discarded so it
+          # can never echo key material.
+          if ! printf '%s\n' "$REGISTRY_DEPLOY_KEY" | ssh-add - > /dev/null 2>&1; then
+            echo "::error::deploy key could not be loaded" >&2
+            exit 1
+          fi
+          unset REGISTRY_DEPLOY_KEY
+          export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN_HOSTS -o GlobalKnownHostsFile=/dev/null"
+          # A non-fast-forward rejection (main moved since checkout) fails the
+          # job on purpose: re-dispatch so the index is re-assembled from the
+          # new main rather than force-pushed over it.
+          git push "git@github.com:${GITHUB_REPOSITORY}.git" HEAD:main
+
+      - name: Dispatch deploy
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Pushes made with a deploy key do trigger deploy.yml (path filter
+          # index/**), so this dispatch is redundant in the normal case. It is
+          # kept so the re-signed index is served even if that trigger is ever
+          # filtered out or delayed; concurrency group pages-deploy serializes
+          # the two runs.
           gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
           echo "dispatched deploy.yml for the re-signed index"
 
