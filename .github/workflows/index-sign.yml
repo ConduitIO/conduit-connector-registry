@@ -149,6 +149,19 @@ jobs:
           # deploy key in the push step only.
           persist-credentials: false
 
+      # Validate the entry files before the root key touches them. A pull
+      # request runs the same check (index-schema.yml), but an entry pushed
+      # straight to main, or a check that was not required at merge time,
+      # would otherwise be signed and served as-is.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate index entries
+        run: |
+          python -m pip install --disable-pip-version-check -r index/ci/requirements.txt
+          python index/ci/validate_entries.py
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: 'go.mod'

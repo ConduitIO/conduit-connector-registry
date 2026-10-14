@@ -1,0 +1,19 @@
+{
+  "_comment": "Registry connector name -> the plugin spec name the connector reports at runtime (specification.name in its connector.yaml, or its spec in code). Pipelines refer to plugins by spec name, so two listed connectors must never share one. Fill this in from the released binary or the tag's connector.yaml when adding a connector; validate_entries.py fails if an entry has no mapping, a mapping has no entry, or two entries map to the same spec name.",
+  "activemq-artemis": "activemq",
+  "file": "file",
+  "generator": "generator",
+  "kafka": "kafka",
+  "kinesis": "kinesis",
+  "log": "log",
+  "materialize": "materialize",
+  "mongo": "mongo",
+  "neo4j": "neo4j",
+  "pgvector": "pgvector",
+  "postgres": "postgres",
+  "pulsar": "pulsar",
+  "rabbitmq": "rabbitmq",
+  "redis": "redis",
+  "s3": "s3",
+  "sqs": "sqs"
+}

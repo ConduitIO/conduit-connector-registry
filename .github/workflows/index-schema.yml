@@ -1,20 +1,20 @@
 name: index-schema
 
 # Validates index/connectors/*.json, index/processors/*.json and
-# index/index.json against index/index-schema.json. index-sign copies entry
+# index/index.json against index/index-schema.json, plus the trust and
+# spec-name lints in index/ci/validate_entries.py. index-sign copies entry
 # files into the signed index without checking them, so without this job a
-# malformed entry (an unknown tier, a free-text license, a bad version string)
-# would be signed and served. See index/ci/validate_entries.py.
+# malformed entry would be signed and served. index-sign.yml runs the same
+# validator before signing.
+#
+# No `paths:` filter, on purpose: the job must report on every pull request
+# so it can be a required status check. A path-filtered workflow never reports
+# on unrelated pull requests, and a required check that never reports blocks
+# every merge. The job takes well under a minute.
 on:
   pull_request:
-    paths:
-      - 'index/**'
-      - '.github/workflows/index-schema.yml'
   push:
     branches: [main]
-    paths:
-      - 'index/**'
-      - '.github/workflows/index-schema.yml'
 
 permissions:
   contents: read
@@ -29,8 +29,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      # jsonschema only enforces `format` (uri, date-time) when its format
+      # extras are installed; validate_entries.py refuses to run without them.
       - name: Install jsonschema
-        run: python -m pip install --disable-pip-version-check 'jsonschema==4.26.0'
+        run: python -m pip install --disable-pip-version-check -r index/ci/requirements.txt
+
+      - name: Validator self-tests (every check can fail)
+        run: python -m unittest discover -s index/ci -v
 
       - name: Validate
         run: python index/ci/validate_entries.py
