@@ -50,5 +50,8 @@ index/
   index.json           # the live signed index (currently: assembled fixture, stale signature)
   connectors/           # per-connector source files index-sign assembles into index.json (connectors[])
   processors/           # per-processor source files index-sign assembles into index.json (processors[])
-  ci/                    # index-CI re-verification tooling (TODO, PR-2)
+  ci/                    # validate_entries.py: schema, trust and spec-name checks of the entry files,
+                         # run by index-schema.yml and before signing in index-sign.yml;
+                         # spec-names.json; test_validate_entries.py. Artifact re-verification is
+                         # still TODO (PR-2)
 ```
