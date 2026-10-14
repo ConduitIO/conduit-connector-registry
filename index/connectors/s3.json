@@ -62,6 +62,63 @@
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
+    },
+    {
+      "version": "v0.9.5",
+      "releasedAt": "2026-10-14T04:45:23.282604309Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_linux_amd64.tar.gz",
+          "sha256": "f0fa367124de2fbcaf2dfa7c95a873df69e5625a06c4a8b58ebbb7d5187ef67f",
+          "size": 19428553,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_linux_arm64.tar.gz",
+          "sha256": "f028690e9a839d84dbaeaeb780e0dee314099374e45682ebee242cfddfb92632",
+          "size": 18136721,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_darwin_amd64.tar.gz",
+          "sha256": "bd8329793ba2fd63a19cf03bc918ceca5262d3cc23601a423f4cc9c6e7961784",
+          "size": 19561855,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_darwin_arm64.tar.gz",
+          "sha256": "9e5382f4ed0d081f8acdda92a306bbb6a32390bc78cf72f18bc5d08a13db00c1",
+          "size": 18638323,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/s3_v0.9.5_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-s3/releases/download/v0.9.5/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
