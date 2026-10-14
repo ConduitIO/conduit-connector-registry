@@ -1,0 +1,36 @@
+name: index-schema
+
+# Validates index/connectors/*.json, index/processors/*.json and
+# index/index.json against index/index-schema.json. index-sign copies entry
+# files into the signed index without checking them, so without this job a
+# malformed entry (an unknown tier, a free-text license, a bad version string)
+# would be signed and served. See index/ci/validate_entries.py.
+on:
+  pull_request:
+    paths:
+      - 'index/**'
+      - '.github/workflows/index-schema.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'index/**'
+      - '.github/workflows/index-schema.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install jsonschema
+        run: python -m pip install --disable-pip-version-check 'jsonschema==4.26.0'
+
+      - name: Validate
+        run: python index/ci/validate_entries.py
