@@ -1,0 +1,4 @@
+# Inputs for requirements.txt. Regenerate with:
+#   uv pip compile index/ci/requirements.in --generate-hashes --python-version 3.12 -o index/ci/requirements.txt
+jsonschema[format-nongpl]==4.26.0
+pyyaml==6.0.3

@@ -1,0 +1,69 @@
+{
+  "name": "kinesis",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-kinesis",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-kinesis/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.2.1",
+      "releasedAt": "2026-10-08T23:09:28Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_linux_amd64.tar.gz",
+          "sha256": "9dbe19d8a66ae7d7a650bee04ff75fdaab5622c8172db0c2cf4674e86d103ee8",
+          "size": 8324048,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_linux_arm64.tar.gz",
+          "sha256": "b152254281d84c18a527ff762be71fb37665442065d0099c9baf1b65467ca7ab",
+          "size": 7590508,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_darwin_amd64.tar.gz",
+          "sha256": "25d46d64c26be9727df799b06d8d2ccbf4f741768be847b1ede13066062151a2",
+          "size": 8522090,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_darwin_arm64.tar.gz",
+          "sha256": "b24cee66acb2b846d63873473ba9d15023b8bcc2b516a267c13d8dbe07389c82",
+          "size": 7970229,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/kinesis_v0.2.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-kinesis/releases/download/v0.2.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}

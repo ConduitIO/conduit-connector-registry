@@ -1,0 +1,69 @@
+{
+  "name": "materialize",
+  "repository": "https://github.com/conduitio-labs/conduit-connector-materialize",
+  "license": "Apache-2.0",
+  "tier": "community",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/conduitio-labs/conduit-connector-materialize/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.3.1",
+      "releasedAt": "2026-10-08T23:14:43Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_linux_amd64.tar.gz",
+          "sha256": "4db50632c4b109e39e382d04a8b7e9ef5765b605066371be998cfedf2d3d47b9",
+          "size": 7429309,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_linux_arm64.tar.gz",
+          "sha256": "29e9b46b4949de84db5dc55cc42e273cc8507036f40e20ef8ed8820f5d6428bd",
+          "size": 6779120,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_darwin_amd64.tar.gz",
+          "sha256": "8b22a76c242ccbdc2d14e1fdef511b1f2e21000f18a409fc56356c56ab555e43",
+          "size": 7613009,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_darwin_arm64.tar.gz",
+          "sha256": "d667a2d3e47934026de86cf287e3acb1464ffaca3e9a5cb7ca04e4944d9384ca",
+          "size": 7116540,
+          "signature": {
+            "bundleURL": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/materialize_v0.3.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/conduitio-labs/conduit-connector-materialize/releases/download/v0.3.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}
