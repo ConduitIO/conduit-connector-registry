@@ -3,3 +3,4 @@
 /index-sign
 cmd/index-sign/index-sign
 index/*.tmp
+__pycache__/

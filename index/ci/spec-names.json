@@ -1,0 +1,32 @@
+{
+  "_comment": "Registry connector name -> the plugin spec name the connector reports at runtime. Pipelines refer to plugins by spec name, so two listed connectors must never share one. A value is either the spec name, read from specification.name in connector.yaml at each release tag, or {\"spec\": name, \"specSource\": path} for connectors that define the spec in Go (path is relative to the repository root at the tag). validate_entries.py checks completeness and uniqueness; check_spec_names.py fetches the source at every listed tag and checks the value.",
+  "activemq-artemis": "activemq",
+  "elasticsearch": {
+    "spec": "elasticsearch",
+    "specSource": "spec.go"
+  },
+  "file": "file",
+  "generator": "generator",
+  "kafka": "kafka",
+  "kinesis": "kinesis",
+  "log": "log",
+  "materialize": {
+    "spec": "materialize",
+    "specSource": "spec.go"
+  },
+  "mongo": "mongo",
+  "neo4j": {
+    "spec": "neo4j",
+    "specSource": "spec.go"
+  },
+  "pgvector": "pgvector",
+  "postgres": "postgres",
+  "pulsar": "pulsar",
+  "rabbitmq": "rabbitmq",
+  "redis": {
+    "spec": "redis",
+    "specSource": "spec.go"
+  },
+  "s3": "s3",
+  "sqs": "sqs"
+}
