@@ -62,6 +62,63 @@
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
+    },
+    {
+      "version": "v0.1.1",
+      "releasedAt": "2026-10-13T07:34:46.157369287Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_linux_amd64.tar.gz",
+          "sha256": "ced76dddd6a02c7d9ac9270c816717bbe2385a1780f0a67445e74557c0cbae22",
+          "size": 8549818,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_linux_arm64.tar.gz",
+          "sha256": "60ceb4c03e377f43c1933305dda6513260a8b80162881f676c546dac0acadce8",
+          "size": 7682398,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_darwin_amd64.tar.gz",
+          "sha256": "2f7698e4a07355a19b01fe499962cc6c199bcf28185f197cb11b91b65909bd8e",
+          "size": 8761770,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_darwin_arm64.tar.gz",
+          "sha256": "870804f90463d8994036acefa68a5419af1f0c4f49f8338a9667435b1650ce44",
+          "size": 8077294,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/pgvector_v0.1.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-pgvector/releases/download/v0.1.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
