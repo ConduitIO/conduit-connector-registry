@@ -1,5 +1,6 @@
 {
   "name": "kafka",
+  "tier": "certified",
   "repository": "https://github.com/ConduitIO/conduit-connector-kafka",
   "publisher": {
     "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",

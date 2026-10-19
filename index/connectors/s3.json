@@ -1,5 +1,6 @@
 {
   "name": "s3",
+  "tier": "certified",
   "repository": "https://github.com/ConduitIO/conduit-connector-s3",
   "publisher": {
     "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
