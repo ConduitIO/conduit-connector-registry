@@ -62,6 +62,63 @@
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
+    },
+    {
+      "version": "v0.6.1",
+      "releasedAt": "2026-10-19T19:25:56.830593666Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_linux_amd64.tar.gz",
+          "sha256": "b72f1ba3fc1a2b17862d582ef85d5d82387d87878270c70ada929af309a19dd5",
+          "size": 28292941,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_linux_arm64.tar.gz",
+          "sha256": "2a28b67fab9228777d5f7a5ee8a91ab2d522c410f9ba7a77b1db25f67088b11c",
+          "size": 26069697,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_darwin_amd64.tar.gz",
+          "sha256": "e6e03f4c76aee43e196e067bf698888e9a6cda53b14d3572b7628da5ba1d5318",
+          "size": 30284329,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_darwin_arm64.tar.gz",
+          "sha256": "4eda93ae2038c30812c7f85ed16ca07b167bd23ac65b7c95bab97eb3806de544",
+          "size": 28483339,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/elasticsearch_v0.6.1_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-elasticsearch/releases/download/v0.6.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
