@@ -1,0 +1,67 @@
+{
+  "name": "mysql",
+  "repository": "https://github.com/ConduitIO/conduit-connector-mysql",
+  "publisher": {
+    "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
+    "expectedIdentityPattern": "^https://github\\.com/ConduitIO/conduit-connector-mysql/\\.github/workflows/publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "versions": [
+    {
+      "version": "v0.5.0",
+      "releasedAt": "2026-10-19T03:00:11.645832436Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.4",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_linux_amd64.tar.gz",
+          "sha256": "abebce9318a336e09f8256ba251255c37ab8afb22fba3e4c1b6579e31f7b162a",
+          "size": 10623214,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_linux_arm64.tar.gz",
+          "sha256": "c90feed25dfee0ef7c0c7328601debecb75c8c9c1606167ead5d75a6caff5682",
+          "size": 9551512,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_darwin_amd64.tar.gz",
+          "sha256": "659223639a032b489dc2fddf2e48c40dfe3b232384e72cfbfc10952a15572dd5",
+          "size": 10861444,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_darwin_arm64.tar.gz",
+          "sha256": "face2afd0d451c429f2a290947bcc86baae53d125c30aa53c9bad2f35f529849",
+          "size": 10063635,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/mysql_v0.5.0_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-mysql/releases/download/v0.5.0/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    }
+  ]
+}
