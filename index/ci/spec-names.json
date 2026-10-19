@@ -15,6 +15,7 @@
     "specSource": "spec.go"
   },
   "mongo": "mongo",
+  "mysql": "mysql",
   "neo4j": {
     "spec": "neo4j",
     "specSource": "spec.go"

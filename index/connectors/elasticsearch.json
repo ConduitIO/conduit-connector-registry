@@ -1,5 +1,6 @@
 {
   "name": "elasticsearch",
+  "tier": "certified",
   "repository": "https://github.com/ConduitIO/conduit-connector-elasticsearch",
   "publisher": {
     "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
