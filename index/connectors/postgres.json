@@ -1,6 +1,5 @@
 {
   "name": "postgres",
-  "tier": "certified",
   "repository": "https://github.com/ConduitIO/conduit-connector-postgres",
   "publisher": {
     "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
@@ -284,6 +283,63 @@
       ],
       "slsaProvenance": {
         "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.17.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    },
+    {
+      "version": "v0.14.5",
+      "releasedAt": "2026-10-20T02:36:09.821258495Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_linux_amd64.tar.gz",
+          "sha256": "5382c123d3f6a65723f2f79431776cfbf8d933e4ead88d82665e0e4aa3613f32",
+          "size": 15617492,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_linux_arm64.tar.gz",
+          "sha256": "9280788556cb3e8cfdd95875314dd090f7f30d01d88aa34e68c46d97170c492e",
+          "size": 14411250,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_darwin_amd64.tar.gz",
+          "sha256": "8d662a993b5cf002cd5a7f4514f0e9389e4e0cd401f2952e6df699e6228135f1",
+          "size": 16281243,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_darwin_arm64.tar.gz",
+          "sha256": "580455843a808c039896cf521f3c80f3df73854d2689f45004fdba7e84d84c07",
+          "size": 15382981,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/postgres_v0.14.5_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-postgres/releases/download/v0.14.5/multiple.intoto.jsonl",
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
