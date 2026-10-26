@@ -1,6 +1,5 @@
 {
   "name": "kafka",
-  "tier": "certified",
   "repository": "https://github.com/ConduitIO/conduit-connector-kafka",
   "publisher": {
     "expectedOIDCIssuer": "https://token.actions.githubusercontent.com",
@@ -284,6 +283,63 @@
       ],
       "slsaProvenance": {
         "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.14.1/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
+    },
+    {
+      "version": "v0.16.0",
+      "releasedAt": "2026-10-26T17:57:41.759900435Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_linux_amd64.tar.gz",
+          "sha256": "96183b7c7a31be657b699445cc707025ce500d442e86fce6627027b85153cdb2",
+          "size": 18633525,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_linux_arm64.tar.gz",
+          "sha256": "a40c5940857bb7a614d1ceb7474aa3bbbd8e31a0dd20a29aed14c7a800079875",
+          "size": 17074172,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_darwin_amd64.tar.gz",
+          "sha256": "bc884adde2e6a583e14bacd258319c2a05f37a98810909d35b1a0814eb46b083",
+          "size": 19407330,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_darwin_arm64.tar.gz",
+          "sha256": "3f79771802feb9465df8a12cb46c7cf3a1d60cdbfd43a284412bbedda3558eba",
+          "size": 18237973,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/kafka_v0.16.0_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-kafka/releases/download/v0.16.0/multiple.intoto.jsonl",
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
