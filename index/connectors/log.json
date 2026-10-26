@@ -172,6 +172,63 @@
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
+    },
+    {
+      "version": "v0.8.0",
+      "releasedAt": "2026-10-26T18:12:14.412332185Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_linux_amd64.tar.gz",
+          "sha256": "eb6b440644cbfcd64247104a8e3eecf8f2ce25bb620280facabc10ff34e77a55",
+          "size": 14620136,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_linux_arm64.tar.gz",
+          "sha256": "ef0c310b9d14c67ac49d3b35149fc0783741f9f2b66b9c7d112657a9a99be843",
+          "size": 13411833,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_darwin_amd64.tar.gz",
+          "sha256": "e41b63294e69fd831480ef07800abddb3713e4b44d9089d3cf9a1a7d9340c479",
+          "size": 15201295,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_darwin_arm64.tar.gz",
+          "sha256": "e227a37c50fd073b9bce5ea0944f1c7110d491a4daf41e7e32aafdb4879d1adc",
+          "size": 14287855,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/log_v0.8.0_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-log/releases/download/v0.8.0/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
