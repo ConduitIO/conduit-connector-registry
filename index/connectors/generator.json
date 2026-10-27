@@ -172,6 +172,63 @@
         "predicateType": "https://slsa.dev/provenance/v1"
       },
       "deprecated": false
+    },
+    {
+      "version": "v0.10.10",
+      "releasedAt": "2026-10-27T04:07:39.998198286Z",
+      "minConduitVersion": "0.15.0",
+      "minProtocolVersion": "0.9.0",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_linux_amd64.tar.gz",
+          "sha256": "09d52c8129926cf3a9f7a1a053f1a72a6bd37b1d10a5b06e61280579862d587c",
+          "size": 15596735,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_linux_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_linux_arm64.tar.gz",
+          "sha256": "230beb8aa132fc54683d9175affcc4dde042d62758bee7de5b8bb20b64434e0c",
+          "size": 14381201,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_linux_arm64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "amd64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_darwin_amd64.tar.gz",
+          "sha256": "cec95a5e32e8b2ca49c3886d4145fcfcb2ce45b4b2dc2fb845f22e7d09468872",
+          "size": 16194724,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_darwin_amd64.tar.gz.sigstore.json"
+          }
+        },
+        {
+          "os": "darwin",
+          "arch": "arm64",
+          "kind": "standalone",
+          "url": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_darwin_arm64.tar.gz",
+          "sha256": "1fe36b86ec25ccde33da15557472aa32dee6dc5519c6ae6479cfbb2df7f347ba",
+          "size": 15295191,
+          "signature": {
+            "bundleURL": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/generator_v0.10.10_darwin_arm64.tar.gz.sigstore.json"
+          }
+        }
+      ],
+      "slsaProvenance": {
+        "bundleURL": "https://github.com/ConduitIO/conduit-connector-generator/releases/download/v0.10.10/multiple.intoto.jsonl",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      },
+      "deprecated": false
     }
   ]
 }
