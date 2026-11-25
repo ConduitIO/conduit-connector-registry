@@ -3085,8 +3085,8 @@
       }
     ],
     "index": {
-      "timestamp": "2026-10-26T21:31:36Z",
-      "version": 21
+      "timestamp": "2026-11-25T22:07:20Z",
+      "version": 22
     },
     "processors": [
       {
@@ -3165,7 +3165,7 @@
       "role": "root",
       "keyId": "sha256:d657c2717760931c3771ec151e88fc143642b5c73ce79a3665fbf0f37f009795",
       "algorithm": "ed25519",
-      "signature": "h7DNSikNAtG41dFJPykiiTwPEyQxNjSTppwQRS/Ryr4uhuuSZrNwOqCYlQjRgL8LdPz7DcFV+uxUikZcz0LCDg=="
+      "signature": "ha0pI0b9MmVA9cNfCVpA9jK7fH/ojdUN2JAd9JqWWls6pMDEhP4v0J2BAipex7pVLUabcPNI2m0tq720GDEYAQ=="
     }
   ]
 }
